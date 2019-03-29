@@ -5,9 +5,9 @@ package cmd
 
 import (
 	"fmt"
-	"os"
+	"log"
 
-	//homedir "github.com/mitchellh/go-homedir"
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -27,11 +27,9 @@ Let's Encrypt service.`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		log.Fatalf("Error: %s", err)
 	}
 }
 
@@ -39,7 +37,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	// persistent flags will be global for your application.
-	//rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gotls.yaml)")
+	rootCmd.PersistentFlags().StringVar(&confFile, "config", "", "config file (default is $HOME/.gotls.yaml)")
 
 	// local flags will only run when this action is called directly.
 	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
@@ -47,26 +45,22 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	//if cfgFile != "" {
-	//	// Use config file from the flag.
-	//	viper.SetConfigFile(cfgFile)
-	//} else {
-	//	// Find home directory.
-	//	home, err := homedir.Dir()
-	//	if err != nil {
-	//		fmt.Println(err)
-	//		os.Exit(1)
-	//	}
-	//
-	//	// Search config in home directory with name ".gotls" (without extension).
-	//	viper.AddConfigPath(home)
-	//	viper.SetConfigName(".gotls")
-	//}
+	if confFile != "" {
+		viper.SetConfigFile(confFile)
+	} else {
+		home, err := homedir.Dir()
+		if err != nil {
+			log.Fatalf("Error: %s", err)
+		}
+		viper.AddConfigPath(home)
+		viper.AddConfigPath(".") // override config from the working directory
+		viper.SetConfigName(".gotls") // do not set the extension; viper will try all known types
+	}
 
 	viper.AutomaticEnv() // read in environment variables that match
 
-	//// If a config file is found, read it in.
-	//if err := viper.ReadInConfig(); err == nil {
-	//	fmt.Println("Using config file:", viper.ConfigFileUsed())
-	//}
+	// If a config file is found, read it in.
+	if err := viper.ReadInConfig(); err == nil {
+		fmt.Printf("using config file: %s\n", viper.ConfigFileUsed())
+	}
 }
