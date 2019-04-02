@@ -1,3 +1,7 @@
 .idea/
 gotls
 *.pem
+*.key
+*.csr
+*.crt
+*.cer
