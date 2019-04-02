@@ -41,7 +41,7 @@ directory it will be used, otherwise a new key will be created.`,
 		email = viper.GetString("email")
 
 		// parse dns args
-		dns = make([]string, len(args))
+		dns = make([]string, 0, len(args))
 		for i, arg := range args {
 			if i == 0 {
 				cn = args[0]

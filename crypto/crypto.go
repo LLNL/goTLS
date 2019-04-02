@@ -17,6 +17,7 @@ import (
 func GenerateKey(fileName string, rsaSize int) (key *rsa.PrivateKey, err error) {
 	// refuse to overwrite existing key
 	if _, err := os.Stat(fileName); err == nil {
+		//TODO: read in and return existing key instead of an error
 		return key, fmt.Errorf("refusing to overwrite existing file %s", fileName)
 	}
 

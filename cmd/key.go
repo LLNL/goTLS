@@ -16,10 +16,11 @@ var rsaSize int
 
 // keyCmd represents the key command
 var keyCmd = &cobra.Command {
-	Use: "key primary-hostname.fq.dn",
+	Use: "key hostname.fqdn",
 	Short: "Generate a RSA private key",
 	Long: `Generate a RSA private key in the current directory for the given hostname.`,
 	Args: cobra.ExactArgs(1),
+	DisableFlagsInUseLine: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		keyFileName := fmt.Sprintf("%s.pem", args[0])
 
