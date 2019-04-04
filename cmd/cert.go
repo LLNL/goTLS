@@ -8,15 +8,18 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/bgentry/speakeasy"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"gotls/http"
+	"gotls/crypto"
 )
 
 var adcsUrl string
+var oidTemplate string
 
 // certCmd represents the cert command
 var certCmd = &cobra.Command{
@@ -35,6 +38,7 @@ var adcsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// get ADCS endpoint url
 		adcsUrl = viper.GetString("adcs-url")
+		oidTemplate = viper.GetString("oid-template")
 
 		// get CSR filename
 		csrFileName := args[0]
@@ -66,8 +70,19 @@ var adcsCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if err := http.PostAdcsRequest(adcsUrl, user, pass, csr); err != nil {
+		// get cert
+		cert, err := http.PostAdcsRequest(adcsUrl, user, pass, csr, oidTemplate)
+		if err != nil {
 			fmt.Printf("Error getting cert: %s\n", err)
+			os.Exit(1)
+		}
+
+		//TODO: move existing cert to .old?
+
+		// write cert
+		certFileName := fmt.Sprintf("%s.crt", strings.TrimSuffix(csrFileName, ".csr"))
+		if err = crypto.WriteCert(certFileName, cert); err != nil {
+			fmt.Printf("Error writing cert: %s\n", err)
 			os.Exit(1)
 		}
 	},
@@ -79,7 +94,11 @@ func init() {
 	// add adcs sub-command
 	certCmd.AddCommand(adcsCmd)
 
-	adcsCmd.Flags().StringVarP(&email, "adcs-url", "", "", "AD Certificate Services endpoint url")
+	adcsCmd.Flags().StringVarP(&adcsUrl, "adcs-url", "", "", "AD Certificate Services endpoint url")
+	adcsCmd.Flags().StringVarP(&oidTemplate, "oid-template", "", "", "OID string usually selected in the ADCS template dropdown")
+
 	viper.BindPFlag("adcs-url", adcsCmd.Flags().Lookup("adcs-url"))
-	//TODO: adcsCmd.MarkFlagRequired("adcs-url") but allow for setting from viper
+	viper.BindPFlag("oid-template", adcsCmd.Flags().Lookup("oid-template"))
+
+	//TODO: adcsCmd.MarkFlagRequired("url") and "oid-template" but allow for setting from viper
 }
