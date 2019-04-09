@@ -3,7 +3,9 @@ Go TLS
 
 go-tls is an automated TLS certificate issuance and management tool. It can
 generate keys, CSRs, and optionally obtain the certificate with an internal
-Active Directory Certificate Services endpoint or the Let's Encrypt service.
+Active Directory Certificate Services endpoint.
 
-An optional monitoring daemon is included to report and act on expiring
-certificates.
+To Do
+-----
+- Let's Encrypt endpoint support for obtaining certificates
+- A monitoring daemon to report and act on expiring certificates
