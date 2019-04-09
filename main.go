@@ -3,7 +3,7 @@
 
 package main
 
-import "gotls/cmd"
+import "github.com/llnl/gotls/cmd"
 
 func main() {
 	cmd.Execute()

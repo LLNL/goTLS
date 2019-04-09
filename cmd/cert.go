@@ -14,8 +14,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"gotls/http"
-	"gotls/crypto"
+	"github.com/llnl/gotls/http"
+	"github.com/llnl/gotls/crypto"
 )
 
 var adcsUrl string

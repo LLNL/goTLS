@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"gotls/crypto"
+	"github.com/llnl/gotls/crypto"
 )
 
 var rsaSize int
