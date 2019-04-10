@@ -5,7 +5,7 @@ package cmd
 
 import (
 	"fmt"
-	"log"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -22,12 +22,11 @@ var keyCmd = &cobra.Command {
 	Args: cobra.ExactArgs(1),
 	DisableFlagsInUseLine: true,
 	Run: func(cmd *cobra.Command, args []string) {
-		keyFileName := fmt.Sprintf("%s.pem", args[0])
+		keyFileName := fmt.Sprintf("%s.key", args[0])
 
-		if _, err := crypto.GenerateKey(keyFileName, rsaSize); err != nil {
-			log.Fatalf("Error generating private key: %s", err)
-		} else {
-			fmt.Printf("Wrote private key to %s\n", keyFileName)
+		if _, err := crypto.GetKey(keyFileName, rsaSize); err != nil {
+			fmt.Printf("Error getting private key: %s\n", err)
+			os.Exit(1)
 		}
 	},
 }

@@ -5,7 +5,7 @@ package cmd
 
 import (
 	"fmt"
-	"log"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -64,19 +64,21 @@ email: %s
 
 `, cn, cn, strings.Join(dns, " "), c, st, l, o, ou, email)
 
-		keyFileName := fmt.Sprintf("%s.pem", cn)
+		keyFileName := fmt.Sprintf("%s.key", cn)
 		csrFileName := fmt.Sprintf("%s.csr", cn)
 
 		// get key
-		key, err := crypto.GenerateKey(keyFileName, rsaSize)
+		key, err := crypto.GetKey(keyFileName, rsaSize)
 		if err != nil {
-			log.Fatalf("Error generating private key: %s", err)
+			fmt.Printf("Error getting private key: %s", err)
+			os.Exit(1)
 		} else {
 			fmt.Printf("Wrote private key to %s\n", keyFileName)
 		}
 
 		if _, err := crypto.GenerateCsr(csrFileName, key, cn, dns, c, st, l, o, ou, email); err != nil {
-			log.Fatalf("Error generating CSR: %s", err)
+			fmt.Printf("Error generating CSR: %s", err)
+			os.Exit(1)
 		} else {
 			fmt.Printf("Wrote csr to %s\n", csrFileName)
 		}

@@ -11,6 +11,7 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"fmt"
+	"io/ioutil"
 	"os"
 )
 
@@ -18,36 +19,52 @@ type BasicConstraints struct {
 	IsCA bool `asn1:"optional"`
 }
 
-func GenerateKey(fileName string, rsaSize int) (key *rsa.PrivateKey, err error) {
-	// refuse to overwrite existing key
-	if _, err := os.Stat(fileName); err == nil {
-		//TODO: read in and return existing key instead of an error
-		return key, fmt.Errorf("refusing to overwrite existing file %s", fileName)
-	}
+func GetKey(fileName string, rsaSize int) (key *rsa.PrivateKey, err error) {
+	// check for existing key
+	if _, err = os.Stat(fileName); err == nil { // key exists
+		fmt.Printf("Loading existing private key\n")
+		keyBytes, err := ioutil.ReadFile(fileName)
+		if err != nil {
+			return key, err
+		}
 
-	// generate private key
-	key, err = rsa.GenerateKey(rand.Reader, rsaSize)
-	if err != nil {
-		return
-	}
+		block, _ := pem.Decode(keyBytes)
+		if block == nil {
+			return key, fmt.Errorf("could not decode private key")
+		}
 
-	// get PEM block for private key
-	block := &pem.Block {
-		Type: "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(key),
-	}
+		key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+		if err != nil {
+			return key, fmt.Errorf("invalid pkcs1 key format: %s", err)
+		}
+	} else {
+		fmt.Printf("Generating new private key\n")
+		// generate private key
+		key, err = rsa.GenerateKey(rand.Reader, rsaSize)
+		if err != nil {
+			return
+		}
 
-	// write out PEM block to file
-	keyFile, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		return key, fmt.Errorf("while opening %s for writing: %s", fileName, err)
-	}
-	if err := pem.Encode(keyFile, block); err != nil {
-		keyFile.Close()
-		return key, fmt.Errorf("failed to write data to %s: %s", fileName, err)
-	}
-	if err := keyFile.Close(); err != nil {
-		return key, fmt.Errorf("while closing %s: %s", fileName, err)
+		// get PEM block for private key
+		block := &pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: x509.MarshalPKCS1PrivateKey(key),
+		}
+
+		// write out PEM block to file
+		keyFile, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+		if err != nil {
+			return key, fmt.Errorf("while opening %s for writing: %s", fileName, err)
+		}
+		if err := pem.Encode(keyFile, block); err != nil {
+			keyFile.Close()
+			return key, fmt.Errorf("failed to write data to %s: %s", fileName, err)
+		}
+		if err := keyFile.Close(); err != nil {
+			return key, fmt.Errorf("while closing %s: %s", fileName, err)
+		}
+
+		fmt.Printf("Wrote private key to %s\n", fileName)
 	}
 
 	return
