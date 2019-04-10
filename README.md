@@ -1,7 +1,7 @@
 Go TLS
 ------
 
-go-tls is an automated TLS certificate issuance and management tool. It can
+gotls is an automated TLS certificate issuance and management tool. It can
 generate keys, CSRs, and optionally obtain the certificate with an internal
 Active Directory Certificate Services endpoint.
 

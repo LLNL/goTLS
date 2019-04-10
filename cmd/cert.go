@@ -89,7 +89,7 @@ var adcsCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(certCmd)
+	RootCmd.AddCommand(certCmd)
 
 	// add adcs sub-command
 	certCmd.AddCommand(adcsCmd)

@@ -14,8 +14,8 @@ import (
 
 var confFile string
 
-// rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command {
+// RootCmd represents the base command when called without any subcommands
+var RootCmd = &cobra.Command {
 	Use: "gotls",
 	Short: "gotls is an automated TLS certificate issuance and management tool",
 	Long: `gotls can generate keys, CSRs, and optionally obtain the certificate
@@ -28,7 +28,7 @@ Let's Encrypt service.`,
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
+	if err := RootCmd.Execute(); err != nil {
 		log.Fatalf("Error: %s", err)
 	}
 }
@@ -37,10 +37,10 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	// persistent flags will be global for your application.
-	rootCmd.PersistentFlags().StringVar(&confFile, "config", "", "config file (default is $HOME/.gotls.yaml)")
+	RootCmd.PersistentFlags().StringVar(&confFile, "config", "", "config file (default is $HOME/.gotls.yaml)")
 
 	// local flags will only run when this action is called directly.
-	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	//RootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 // initConfig reads in config file and ENV variables if set.

@@ -33,7 +33,7 @@ var keyCmd = &cobra.Command {
 }
 
 func init() {
-	rootCmd.AddCommand(keyCmd)
+	RootCmd.AddCommand(keyCmd)
 
 	keyCmd.Flags().IntVarP(&rsaSize, "rsa-size", "", 2048, "RSA key size to use")
 }

@@ -84,7 +84,7 @@ email: %s
 }
 
 func init() {
-	rootCmd.AddCommand(csrCmd)
+	RootCmd.AddCommand(csrCmd)
 
 	// define flags
 	csrCmd.Flags().StringVarP(&email, "email", "e", "", "Email address to submit")
