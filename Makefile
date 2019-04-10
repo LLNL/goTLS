@@ -3,7 +3,7 @@ BIN_NAME=gotls
 all: build
 
 build:
-	go build -o $(BIN_NAME) -v
+	go build -v -ldflags '-s -w' -o $(BIN_NAME)
 
 clean:
 	go clean
