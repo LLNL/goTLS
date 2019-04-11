@@ -8,6 +8,7 @@ URL:            https://mybitbucket.llnl.gov/projects/COMPWEBDEV/repos/gotls
 Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  golang
+BuildRequires:  git
 
 %description
 gotls is an automated TLS certificate issuance and management tool. It can
