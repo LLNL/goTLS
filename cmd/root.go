@@ -19,8 +19,7 @@ var RootCmd = &cobra.Command {
 	Use: "gotls",
 	Short: "gotls is an automated TLS certificate issuance and management tool",
 	Long: `gotls can generate keys, CSRs, and optionally obtain the certificate
-with an internal Active Directory Certificate Services endpoint or the
-Let's Encrypt service.`,
+with an internal Active Directory Certificate Services endpoint.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	//	Run: func(cmd *cobra.Command, args []string) { },
