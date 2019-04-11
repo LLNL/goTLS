@@ -72,8 +72,6 @@ email: %s
 		if err != nil {
 			fmt.Printf("Error getting private key: %s", err)
 			os.Exit(1)
-		} else {
-			fmt.Printf("Wrote private key to %s\n", keyFileName)
 		}
 
 		if _, err := crypto.GenerateCsr(csrFileName, key, cn, dns, c, st, l, o, ou, email); err != nil {
