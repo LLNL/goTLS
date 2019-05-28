@@ -1,4 +1,4 @@
-GoTLS
+goTLS
 -----
 
 goTLS is an automated TLS certificate issuance and management tool for Windows,
@@ -16,7 +16,7 @@ installation)
 Install
 -------
 
-Download links from the source control repository are still pending.
+Compiled binaries can be found at the [releases page](https://github.com/llnl/gotls/releases).
 
 Although values can be supplied at invocation via options, it is suggested to
 populate a config file in the home directory with default values. If the ADCS
@@ -67,4 +67,28 @@ hostname.llnl.gov.csr will be created in the current dir. It will also generate 
 If you have signing authority for an ADCS endpoint, you can obtain the cert:
 
 $ gotls cert adcs hostname.llnl.gov.csr
+
+
+Contributing
+------------
+
+Contributions to goTLS are most welcome. Please note any bugs or suggestions
+you have to the [issue tracker](https://github.com/llnl/gotls/issues). [Pull
+requests](https://help.github.com/articles/using-pull-requests) can be
+targeted directly to the master branch. As noted below, all contributions must
+be made under the MIT license.
+
+
+License
+-------
+
+goTLS is distributed under the terms of the MIT license. All new contributions
+must be made under this license.
+
+See [LICENSE](https://github.com/llnl/gotls/blob/develop/LICENSE) and
+[NOTICE](https://github.com/llnl/gotls/blob/develop/NOTICE) for details.
+
+SPDX-License-Identifier: MIT
+
+LLNL-CODE-775069
 

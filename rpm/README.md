@@ -16,16 +16,16 @@ config_opts['rpmbuild_networking'] = True
 
 ## Build
 
-First we need to place an archive containing the source alongside the gencsr.spec
-file. The preferred method is to create the archive from a git working folder:
+First we need to place an archive containing the source alongside the
+gencsr.spec file. The preferred method is to download an archive from a source
+control repository. However, the archive must decompress into a top-level
+folder following this naming convention:
+gotls-0.1.0/
+
+To manually create the archive from a git working folder:
 ```
 tar --exclude-vcs --exclude-vcs-ignores --exclude='rpm/gotls-*' --exclude='todo' --dereference -czf gotls-0.1.0.tar.gz gotls-0.1.0/
 ```
-
-It's unfortunate that we cannot download the archive directly from BitBucket's
-REST API because it does not create archives with a top level folder. The
-archive must decompress into a folder following this naming convention:
-gotls-0.1.0/
 
 Once the archive is in place, build the package for the desired operating
 system version:

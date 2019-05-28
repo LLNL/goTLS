@@ -1,5 +1,6 @@
-// Copyright © 2019 Lawrence Livermore National Security
-// See LICENSE file
+// Copyright © 2019 Lawrence Livermore National Security, LLC
+// SPDX-License-Identifier: MIT
+// See top-level LICENSE file for details.
 
 package http
 
