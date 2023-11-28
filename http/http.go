@@ -7,7 +7,7 @@ package http
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -18,27 +18,32 @@ import (
 	ntlmssp "github.com/Azure/go-ntlmssp"
 )
 
-func PostAdcsRequest(adcsUrl, user, pass, csr, oidTemplate string) (cert []byte, err error) {
+type CertConfig struct {
+	AdcsUrl     string
+	OidTemplate string
+}
+
+func PostAdcsRequest(user, pass, csr string, config *CertConfig) (cert []byte, err error) {
 	// build POST data
-	form := url.Values {}
+	form := url.Values{}
 	form.Add("CertRequest", csr)
 	form.Add("TargetStoreFlags", "0")
 	form.Add("SaveCert", "yes")
 	form.Add("Mode", "newreq")
 	form.Add("FriendlyType", fmt.Sprintf("Saved-Request Certificate (%s)", time.Now().Format("1/2/2006, 3:04:05 PM")))
 	form.Add("ThumbPrint", "")
-	form.Add("CertAttrib", fmt.Sprintf("CertificateTemplate:%s\r\nUserAgent:Go-http-client/1.1\r\n", oidTemplate))
+	form.Add("CertAttrib", fmt.Sprintf("CertificateTemplate:%s\r\nUserAgent:Go-http-client/1.1\r\n", config.OidTemplate))
 	body := strings.NewReader(form.Encode())
 
 	// indicate NTLM auth
-	client := &http.Client {
-		Transport: ntlmssp.Negotiator {
-			RoundTripper: &http.Transport {},
+	client := &http.Client{
+		Transport: ntlmssp.Negotiator{
+			RoundTripper: &http.Transport{},
 		},
 	}
 
 	// build url
-	certfnshUrl, err := url.Parse(adcsUrl)
+	certfnshUrl, err := url.Parse(config.AdcsUrl)
 	if err != nil {
 		return cert, fmt.Errorf("invalid adcs-url: %s", err)
 	}
@@ -61,7 +66,11 @@ func PostAdcsRequest(adcsUrl, user, pass, csr, oidTemplate string) (cert []byte,
 
 	// get issued certificate request ID
 	requestId := ""
-	if resp.StatusCode == http.StatusOK {
+	if resp.StatusCode != http.StatusOK {
+		content, _ := io.ReadAll(resp.Body)
+		fmt.Printf("response:\n%s\n", content)
+		return cert, fmt.Errorf("certificate issue request returned status code: %d", resp.StatusCode)
+	} else if resp.StatusCode == http.StatusOK {
 		scanner := bufio.NewScanner(resp.Body)
 		for scanner.Scan() {
 			if strings.Contains(scanner.Text(), "locDownloadCert1") {
@@ -80,7 +89,7 @@ func PostAdcsRequest(adcsUrl, user, pass, csr, oidTemplate string) (cert []byte,
 	}
 
 	// build issued cert url
-	certnewUrl, err := url.Parse(adcsUrl)
+	certnewUrl, err := url.Parse(config.AdcsUrl)
 	if err != nil {
 		return cert, fmt.Errorf("invalid adcs-url: %s", err)
 	}
@@ -102,9 +111,11 @@ func PostAdcsRequest(adcsUrl, user, pass, csr, oidTemplate string) (cert []byte,
 	}
 	defer certResp.Body.Close()
 	if certResp.StatusCode == http.StatusOK {
-		cert, err = ioutil.ReadAll(certResp.Body)
+		cert, err = io.ReadAll(certResp.Body)
 	} else {
-		err = fmt.Errorf("download request returned status code: %d", certResp.StatusCode)
+		content, _ := io.ReadAll(certResp.Body)
+		fmt.Printf("response:\n%s\n", content)
+		return cert, fmt.Errorf("download request returned status code: %d", certResp.StatusCode)
 	}
 
 	return

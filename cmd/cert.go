@@ -7,7 +7,6 @@ package cmd
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -15,12 +14,27 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/llnl/gotls/http"
 	"github.com/llnl/gotls/crypto"
+	"github.com/llnl/gotls/http"
 )
 
-var adcsUrl string
-var oidTemplate string
+func getCertConfig(args []string) *http.CertConfig {
+	if !viper.IsSet("adcs-url") {
+		fmt.Fprintf(os.Stderr, "error: adcs-url is not set\n")
+		os.Exit(1)
+	}
+	adcsUrl := viper.GetString("adcs-url")
+	if !viper.IsSet("oid-template") {
+		fmt.Fprintf(os.Stderr, "error: oid-template is not set\n")
+		os.Exit(1)
+	}
+	oidTemplate := viper.GetString("oid-template")
+
+	return &http.CertConfig{
+		AdcsUrl:     adcsUrl,
+		OidTemplate: oidTemplate,
+	}
+}
 
 // certCmd represents the cert command
 var certCmd = &cobra.Command{
@@ -32,74 +46,75 @@ certificate corresponding to the given CSR`,
 }
 
 var adcsCmd = &cobra.Command{
-	Use:   "adcs",
+	Use:   "adcs filename.csr",
 	Short: "Obtains certificate from Microsoft AD Certificate Services",
-	Long: `Obtains a signed certificate from Microsoft AD Certificate Services`,
-	Args: cobra.ExactArgs(1),
+	Long:  `Obtains a signed certificate from Microsoft AD Certificate Services`,
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		// get ADCS endpoint url
-		adcsUrl = viper.GetString("adcs-url")
-		oidTemplate = viper.GetString("oid-template")
-
-		// get CSR filename
-		csrFileName := args[0]
-
-		// read in CSR
-		var csr string
-		if _, err := os.Stat(csrFileName); err != nil {
-			fmt.Printf("Error accessing CSR file: %s\n", err)
-			os.Exit(1)
-		} else { // CSR file exists
-			csrBytes, err := ioutil.ReadFile(csrFileName)
-			if err != nil {
-				fmt.Printf("Error reading CSR: %s\n", err)
-				os.Exit(1)
-			}
-			csr = string(csrBytes)
-		}
-
-		// get user name
-		fmt.Printf("Authenticate to AD Certificate Services:\nUsername: ")
-		scanner := bufio.NewScanner(os.Stdin)
-		scanner.Scan()
-		user := scanner.Text()
-
-		// get password
-		pass, err := speakeasy.Ask("password: ")
-		if err != nil {
-			fmt.Printf("Error getting password: %s", err)
-			os.Exit(1)
-		}
-
-		// get cert
-		cert, err := http.PostAdcsRequest(adcsUrl, user, pass, csr, oidTemplate)
-		if err != nil {
-			fmt.Printf("Error getting cert: %s\n", err)
-			os.Exit(1)
-		}
-
-		//TODO: move existing cert to .old?
-
-		// write cert
-		certFileName := fmt.Sprintf("%s.crt", strings.TrimSuffix(csrFileName, ".csr"))
-		if err = crypto.WriteCert(certFileName, cert); err != nil {
-			fmt.Printf("Error writing cert: %s\n", err)
-			os.Exit(1)
-		}
+		adcs(cmd, args)
 	},
+}
+
+func adcs(cmd *cobra.Command, args []string) {
+	// load config
+	config := getCertConfig(args)
+
+	// get CSR filename
+	csrFileName := args[0]
+
+	// read in CSR
+	var csr string
+	if _, err := os.Stat(csrFileName); err != nil {
+		fmt.Fprintf(os.Stderr, "error accessing CSR file: %s\n", err)
+		os.Exit(1)
+	} else { // CSR file exists
+		csrBytes, err := os.ReadFile(csrFileName)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error reading CSR file: %s\n", err)
+			os.Exit(1)
+		}
+		csr = string(csrBytes)
+	}
+
+	// get username
+	fmt.Printf("Authenticate to AD Certificate Services:\n  username: ")
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	user := scanner.Text()
+
+	// get password
+	pass, err := speakeasy.Ask("  password: ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error getting password: %s\n", err)
+		os.Exit(1)
+	}
+
+	// get cert
+	cert, err := http.PostAdcsRequest(user, pass, csr, config)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error getting cert: %s\n", err)
+		os.Exit(1)
+	}
+
+	//TODO: move existing cert to .old?
+
+	// write cert
+	certFileName := fmt.Sprintf("%s.crt", strings.TrimSuffix(csrFileName, ".csr"))
+	if err = crypto.WriteCert(certFileName, cert); err != nil {
+		fmt.Fprintf(os.Stderr, "error writing cert: %s\n", err)
+		os.Exit(1)
+	}
 }
 
 func init() {
 	RootCmd.AddCommand(certCmd)
 
-	// add adcs sub-command
-	certCmd.AddCommand(adcsCmd)
-
-	adcsCmd.Flags().StringVarP(&adcsUrl, "adcs-url", "", "", "AD Certificate Services endpoint url")
-	adcsCmd.Flags().StringVarP(&oidTemplate, "oid-template", "", "", "OID string usually selected in the ADCS template dropdown")
+	adcsCmd.Flags().String("adcs-url", "", "AD Certificate Services endpoint url")
+	adcsCmd.Flags().String("oid-template", "", "OID string usually selected in the ADCS template dropdown")
 
 	viper.BindPFlag("adcs-url", adcsCmd.Flags().Lookup("adcs-url"))
 	viper.BindPFlag("oid-template", adcsCmd.Flags().Lookup("oid-template"))
 
-	//TODO: adcsCmd.MarkFlagRequired("url") and "oid-template" but allow for setting from viper
+	// add adcs sub-command
+	certCmd.AddCommand(adcsCmd)
 }

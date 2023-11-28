@@ -5,3 +5,5 @@ gotls
 *.csr
 *.crt
 *.cer
+gotls.odp
+*.exe

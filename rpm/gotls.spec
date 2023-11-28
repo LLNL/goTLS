@@ -4,7 +4,7 @@ Release:        1%{?dist}
 Summary:        gotls is an automated TLS certificate issuance and management tool
 
 License:        MIT
-URL:            https://mybitbucket.llnl.gov/projects/COMPWEBDEV/repos/gotls
+URL:            https://github.com/LLNL/gotls
 Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  golang

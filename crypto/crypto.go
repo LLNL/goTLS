@@ -12,7 +12,6 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"os"
 )
 
@@ -23,8 +22,8 @@ type BasicConstraints struct {
 func GetKey(fileName string, rsaSize int) (key *rsa.PrivateKey, err error) {
 	// check for existing key
 	if _, err = os.Stat(fileName); err == nil { // key exists
-		fmt.Printf("Loading existing private key\n")
-		keyBytes, err := ioutil.ReadFile(fileName)
+		fmt.Printf("loading existing private key %s\n", fileName)
+		keyBytes, err := os.ReadFile(fileName)
 		if err != nil {
 			return key, err
 		}
@@ -65,7 +64,7 @@ func GetKey(fileName string, rsaSize int) (key *rsa.PrivateKey, err error) {
 			return key, fmt.Errorf("while closing %s: %s", fileName, err)
 		}
 
-		fmt.Printf("Wrote private key to %s\n", fileName)
+		fmt.Printf("wrote private key to %s\n", fileName)
 	}
 
 	return
@@ -73,31 +72,31 @@ func GetKey(fileName string, rsaSize int) (key *rsa.PrivateKey, err error) {
 
 func GenerateCsr(fileName string, key *rsa.PrivateKey, cn string, dns []string, c, st, l, o, ou, email string) (block *pem.Block, err error) {
 	// populate subject fields (designating CN as required)
-	subject := pkix.Name {
+	subject := pkix.Name{
 		CommonName: cn,
 	}
 	if c != "" {
-		subject.Country = []string{ c }
+		subject.Country = []string{c}
 	}
 	if st != "" {
-		subject.Province = []string{ st }
+		subject.Province = []string{st}
 	}
 	if l != "" {
-		subject.Locality = []string{ l }
+		subject.Locality = []string{l}
 	}
 	if o != "" {
-		subject.Organization = []string{ o }
+		subject.Organization = []string{o}
 	}
 	if ou != "" {
-		subject.OrganizationalUnit = []string{ ou }
+		subject.OrganizationalUnit = []string{ou}
 	}
 	if email != "" {
 		// using subject.EmailAddresses would set the email in the SAN field (for email certificates)
-		subject.ExtraNames = []pkix.AttributeTypeAndValue {
-			pkix.AttributeTypeAndValue {
-				Type: asn1.ObjectIdentifier{ 1, 2, 840, 113549, 1, 9, 1 },
-				Value: asn1.RawValue {
-					Tag: asn1.TagIA5String,
+		subject.ExtraNames = []pkix.AttributeTypeAndValue{
+			pkix.AttributeTypeAndValue{
+				Type: asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 1},
+				Value: asn1.RawValue{
+					Tag:   asn1.TagIA5String,
 					Bytes: []byte(email),
 				},
 			},
@@ -113,21 +112,21 @@ func GenerateCsr(fileName string, key *rsa.PrivateKey, cn string, dns []string, 
 	}
 
 	// populate CSR template
-	template := &x509.CertificateRequest {
+	template := &x509.CertificateRequest{
 		SignatureAlgorithm: x509.SHA256WithRSA,
-		Subject: subject,
-		ExtraExtensions: []pkix.Extension {
+		Subject:            subject,
+		ExtraExtensions: []pkix.Extension{
 			// key usage
-			pkix.Extension {
-				Id: asn1.ObjectIdentifier{ 2, 5, 29, 15 },
+			pkix.Extension{
+				Id:       asn1.ObjectIdentifier{2, 5, 29, 15},
 				Critical: false,
-				Value: []byte{ 0x03, 0x02, 0x03, 0xe0 }, // 0x03: 3 bits; 0xe0: digitalSignature(0),nonRepudiation(1),keyEncipherment(2)
+				Value:    []byte{0x03, 0x02, 0x03, 0xe0}, // 0x03: 3 bits; 0xe0: digitalSignature(0),nonRepudiation(1),keyEncipherment(2)
 			},
 			// Basic constraint: CA=false
-			pkix.Extension {
-				Id: asn1.ObjectIdentifier{ 2, 5, 29, 19 },
+			pkix.Extension{
+				Id:       asn1.ObjectIdentifier{2, 5, 29, 19},
 				Critical: false,
-				Value: basicConstraints,
+				Value:    basicConstraints,
 			},
 		},
 	}
@@ -142,8 +141,8 @@ func GenerateCsr(fileName string, key *rsa.PrivateKey, cn string, dns []string, 
 	}
 
 	// get PEM block for CSR
-	block = &pem.Block {
-		Type: "CERTIFICATE REQUEST",
+	block = &pem.Block{
+		Type:  "CERTIFICATE REQUEST",
 		Bytes: der,
 	}
 

@@ -15,45 +15,67 @@ import (
 	"github.com/llnl/gotls/crypto"
 )
 
-var cn string
-var dns []string
-var c string
-var st string
-var l string
-var o string
-var ou string
-var email string
+type CsrConfig struct {
+	c     string
+	st    string
+	l     string
+	o     string
+	ou    string
+	email string
+	cn    string
+	dns   []string
+}
+
+func getCsrConfig(args []string) *CsrConfig {
+	c := viper.GetString("c")
+	st := viper.GetString("st")
+	l := viper.GetString("l")
+	o := viper.GetString("o")
+	ou := viper.GetString("ou")
+	email := viper.GetString("email")
+	var cn string
+
+	// parse dns args
+	dns := make([]string, 0, len(args))
+	for i, arg := range args {
+		if i == 0 {
+			cn = args[0]
+		}
+		dns = append(dns, arg)
+	}
+
+	//TODO: test args for IP, don't assume DNS
+
+	return &CsrConfig{
+		c:     c,
+		st:    st,
+		l:     l,
+		o:     o,
+		ou:    ou,
+		email: email,
+		cn:    cn,
+		dns:   dns,
+	}
+}
 
 // csrCmd represents the csr command
 var csrCmd = &cobra.Command{
-	Use: "csr primary-hostname.fq.dn [additional-hostname(s)]",
+	Use:   "csr primary-hostname.fq.dn [additional-hostname(s)]",
 	Short: "Generate a Certificate Signing Request",
 	Long: `Generate a Certificate Signing Request given a number of hostname(s).
 If a private key matching the given primary hostname exists in the current
 directory it will be used, otherwise a new key will be created.`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		// load flag variables
-		c = viper.GetString("c")
-		st = viper.GetString("st")
-		l = viper.GetString("l")
-		o = viper.GetString("o")
-		ou = viper.GetString("ou")
-		email = viper.GetString("email")
+		csr(cmd, args)
+	},
+}
 
-		// parse dns args
-		dns = make([]string, 0, len(args))
-		for i, arg := range args {
-			if i == 0 {
-				cn = args[0]
-			}
-			dns = append(dns, arg)
-		}
+func csr(cmd *cobra.Command, args []string) {
+	// load flag variables
+	config := getCsrConfig(args)
 
-		//TODO: test for non-empty values
-		//TODO: test args for IP, don't assume DNS
-
-		fmt.Printf(`Generating %s.csr with values:
+	fmt.Printf(`Generating %s.csr with values:
 CN: %s
 SAN: %s
 C: %s
@@ -63,43 +85,44 @@ O: %s
 OU: %s
 email: %s
 
-`, cn, cn, strings.Join(dns, " "), c, st, l, o, ou, email)
+`, config.cn, config.cn, strings.Join(config.dns, " "), config.c, config.st, config.l, config.o, config.ou, config.email)
 
-		keyFileName := fmt.Sprintf("%s.key", cn)
-		csrFileName := fmt.Sprintf("%s.csr", cn)
+	keyFileName := fmt.Sprintf("%s.key", config.cn)
+	csrFileName := fmt.Sprintf("%s.csr", config.cn)
 
-		// get key
-		key, err := crypto.GetKey(keyFileName, rsaSize)
-		if err != nil {
-			fmt.Printf("Error getting private key: %s", err)
-			os.Exit(1)
-		}
+	// get key
+	key, err := crypto.GetKey(keyFileName, rsaSize)
+	if err != nil {
+		fmt.Printf("error getting private key: %s\n", err)
+		os.Exit(1)
+	}
 
-		if _, err := crypto.GenerateCsr(csrFileName, key, cn, dns, c, st, l, o, ou, email); err != nil {
-			fmt.Printf("Error generating CSR: %s", err)
-			os.Exit(1)
-		} else {
-			fmt.Printf("Wrote csr to %s\n", csrFileName)
-		}
-	},
+	if _, err := crypto.GenerateCsr(csrFileName, key, config.cn, config.dns, config.c, config.st, config.l, config.o,
+		config.ou, config.email); err != nil {
+		fmt.Printf("error generating CSR: %s\n", err)
+		os.Exit(1)
+	} else {
+		fmt.Printf("wrote csr to %s\n", csrFileName)
+	}
 }
 
 func init() {
-	RootCmd.AddCommand(csrCmd)
-
 	// define flags
-	csrCmd.Flags().StringVarP(&email, "email", "e", "", "Email address to submit")
-	csrCmd.Flags().StringVarP(&c, "c", "c", "", "Country field for CSR")
-	csrCmd.Flags().StringVarP(&st, "st", "", "", "Province or state field for CSR")
-	csrCmd.Flags().StringVarP(&l, "l", "l", "", "Locality or city field for CSR")
-	csrCmd.Flags().StringVarP(&o, "o", "o", "", "Organization field for CSR")
-	csrCmd.Flags().StringVarP(&ou, "ou", "", "", "Organization Unit field for CSR")
+	csrCmd.Flags().StringP("email", "e", "", "Email address to submit")
+	csrCmd.Flags().StringP("c", "c", "", "Country field for CSR")
+	csrCmd.Flags().StringP("st", "", "", "Province or state field for CSR")
+	csrCmd.Flags().StringP("l", "l", "", "Locality or city field for CSR")
+	csrCmd.Flags().StringP("o", "o", "", "Organization field for CSR")
+	csrCmd.Flags().StringP("ou", "", "", "Organization Unit field for CSR")
+	csrCmd.Flags().IntVarP(&rsaSize, "rsa-size", "", 2048, "RSA key size to use")
 
-	// bind flags to conf file values (appears to be case-insensitive)
+	// bind flags to conf file values
 	viper.BindPFlag("c", csrCmd.Flags().Lookup("c"))
 	viper.BindPFlag("st", csrCmd.Flags().Lookup("st"))
 	viper.BindPFlag("l", csrCmd.Flags().Lookup("l"))
 	viper.BindPFlag("o", csrCmd.Flags().Lookup("o"))
 	viper.BindPFlag("ou", csrCmd.Flags().Lookup("ou"))
 	viper.BindPFlag("email", csrCmd.Flags().Lookup("email"))
+
+	RootCmd.AddCommand(csrCmd)
 }
