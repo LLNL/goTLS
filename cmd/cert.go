@@ -29,10 +29,18 @@ func getCertConfig(args []string) *http.CertConfig {
 		os.Exit(1)
 	}
 	oidTemplate := viper.GetString("oid-template")
+	adcsAuthMethod := viper.GetString("auth")
+	adcsAuthKrb5conf := viper.GetString("krb5conf")
+	adcsAuthRealm := viper.GetString("realm")
+	adcsAuthKdcs := viper.GetStringSlice("kdcs")
 
 	return &http.CertConfig{
-		AdcsUrl:     adcsUrl,
-		OidTemplate: oidTemplate,
+		AdcsUrl:          adcsUrl,
+		OidTemplate:      oidTemplate,
+		AdcsAuthMethod:   adcsAuthMethod,
+		AdcsAuthKrb5conf: adcsAuthKrb5conf,
+		AdcsAuthRealm:    adcsAuthRealm,
+		AdcsAuthKdcs:     adcsAuthKdcs,
 	}
 }
 
@@ -111,9 +119,17 @@ func init() {
 
 	adcsCmd.Flags().String("adcs-url", "", "AD Certificate Services endpoint url")
 	adcsCmd.Flags().String("oid-template", "", "OID string usually selected in the ADCS template dropdown")
+	adcsCmd.Flags().String("auth", "kerberos", "Authorization method for AD Certificate Services endpoint: kerberos or ntlm")
+	adcsCmd.Flags().String("krb5conf", "", "Path to a kerberos config file containing realms (with KDCs) and domain_realm sections in lieu of specifying kdcs")
+	adcsCmd.Flags().String("realm", "", "Realm to use for kerberos authentiation")
+	adcsCmd.Flags().StringSlice("kdcs", []string{}, "A comma separated list of KDC servers to use for kerberos authentiation")
 
 	viper.BindPFlag("adcs-url", adcsCmd.Flags().Lookup("adcs-url"))
 	viper.BindPFlag("oid-template", adcsCmd.Flags().Lookup("oid-template"))
+	viper.BindPFlag("auth", adcsCmd.Flags().Lookup("auth"))
+	viper.BindPFlag("krb5conf", adcsCmd.Flags().Lookup("krb5conf"))
+	viper.BindPFlag("realm", adcsCmd.Flags().Lookup("realm"))
+	viper.BindPFlag("kdcs", adcsCmd.Flags().Lookup("kdcs"))
 
 	// add adcs sub-command
 	certCmd.AddCommand(adcsCmd)

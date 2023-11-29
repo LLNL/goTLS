@@ -6,6 +6,7 @@ package http
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,15 +14,45 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"text/template"
 	"time"
 
+	gokrb5 "github.com/jcmturner/gokrb5/v8/client"
+	gokrb5conf "github.com/jcmturner/gokrb5/v8/config"
 	ntlmssp "github.com/Azure/go-ntlmssp"
+	spnego "github.com/jcmturner/gokrb5/v8/spnego"
 )
 
 type CertConfig struct {
-	AdcsUrl     string
-	OidTemplate string
+	AdcsUrl          string
+	OidTemplate      string
+	AdcsAuthMethod   string
+	AdcsAuthKrb5conf string
+	AdcsAuthRealm    string
+	AdcsAuthKdcs     []string
 }
+
+const Krb5Config = `[libdefaults]
+  dns_lookup_realm = false
+  dns_lookup_kdc = false
+  ticket_lifetime = 24h
+  forwardable = yes
+  default_tkt_enctypes = aes256-cts-hmac-sha1-96
+  default_tgs_enctypes = aes256-cts-hmac-sha1-96
+  noaddresses = false
+  default_realm = {{ToUpper .AdcsAuthRealm}}
+
+[realms]
+  {{ToUpper .AdcsAuthRealm}} = {
+{{- range .AdcsAuthKdcs}}
+    kdc = {{ToLower .}}
+{{- end}}
+ }
+
+[domain_realm]
+  .{{ToLower .AdcsAuthRealm}} = {{ToUpper .AdcsAuthRealm}}
+  {{ToLower .AdcsAuthRealm}} = {{ToUpper .AdcsAuthRealm}}
+`
 
 func PostAdcsRequest(user, pass, csr string, config *CertConfig) (cert []byte, err error) {
 	// build POST data
@@ -36,10 +67,33 @@ func PostAdcsRequest(user, pass, csr string, config *CertConfig) (cert []byte, e
 	body := strings.NewReader(form.Encode())
 
 	// indicate NTLM auth
-	client := &http.Client{
-		Transport: ntlmssp.Negotiator{
-			RoundTripper: &http.Transport{},
-		},
+	//client := &http.Client {
+	//	Transport: ntlmssp.Negotiator {
+	//		RoundTripper: &http.Transport {},
+	//	},
+	//}
+
+	// Kerberos
+	funcList := template.FuncMap{"ToUpper": strings.ToUpper, "ToLower": strings.ToLower}
+	t := template.Must(template.New("").Funcs(funcList).Parse(Krb5Config))
+	buffer := &bytes.Buffer{}
+	if err := t.Execute(buffer, *config); err != nil {
+		return cert, fmt.Errorf("error creating kerberos config: %s", err)
+	}
+	var cfg *gokrb5conf.Config
+	if config.AdcsAuthKrb5conf != "" {
+		cfg, err = gokrb5conf.Load(config.AdcsAuthKrb5conf)
+		if err != nil {
+			return cert, fmt.Errorf("error loading kerberos config: %s", err)
+		}
+	} else {
+		cfg = gokrb5conf.New()
+	}
+	krb5Client := gokrb5.NewWithPassword(user, config.AdcsAuthRealm, pass, cfg, gokrb5.DisablePAFXFAST(true))
+	err = krb5Client.Login()
+	defer krb5Client.Destroy()
+	if err != nil {
+		return cert, fmt.Errorf("error obtaining kerberos ticket: %s", err)
 	}
 
 	// build url
@@ -55,9 +109,12 @@ func PostAdcsRequest(user, pass, csr string, config *CertConfig) (cert []byte, e
 		return
 	}
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	req.SetBasicAuth(user, pass)
+	//TODO: if !kerberos
+	//req.SetBasicAuth(user, pass)
 
 	// get response
+	//TODO: if kerberos
+	client := spnego.NewClient(krb5Client, nil, "")
 	resp, err := client.Do(req)
 	if err != nil {
 		return
@@ -104,7 +161,8 @@ func PostAdcsRequest(user, pass, csr string, config *CertConfig) (cert []byte, e
 	if err != nil {
 		return cert, fmt.Errorf("could not initiate cert download request: %v", err)
 	}
-	certReq.SetBasicAuth(user, pass)
+	//TODO: if !kerberos
+	//certReq.SetBasicAuth(user, pass)
 	certResp, err := client.Do(certReq)
 	if err != nil {
 		return cert, fmt.Errorf("could not download issued cert: %v", err)
