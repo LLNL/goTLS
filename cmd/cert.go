@@ -24,24 +24,51 @@ func getCertConfig(args []string) *http.CertConfig {
 		os.Exit(1)
 	}
 	adcsUrl := viper.GetString("adcs-url")
+
 	if !viper.IsSet("oid-template") {
 		fmt.Fprintf(os.Stderr, "error: oid-template is not set\n")
 		os.Exit(1)
 	}
 	oidTemplate := viper.GetString("oid-template")
-	adcsAuthMethod := viper.GetString("auth")
-	adcsAuthKrb5conf := viper.GetString("krb5conf")
-	adcsAuthRealm := viper.GetString("realm")
-	adcsAuthKdcs := viper.GetStringSlice("kdcs")
 
-	return &http.CertConfig{
+	if !viper.IsSet("adcs-auth.method") {
+		fmt.Fprintf(os.Stderr, "error: auth method is not set\n")
+		os.Exit(1)
+	}
+	adcsAuthMethod := strings.ToLower(viper.GetString("adcs-auth.method"))
+	if _, ok := http.AuthMethodMap[adcsAuthMethod]; !ok {
+		fmt.Fprintf(os.Stderr, "error: invalid auth method %s\n", adcsAuthMethod)
+		os.Exit(1)
+	}
+
+	var adcsAuthKrb5conf, adcsAuthRealm string
+	var adcsAuthKdcs []string
+	if adcsAuthMethod == "kerberos" {
+		if viper.IsSet("adcs-auth.krb5conf") {
+			adcsAuthKrb5conf = viper.GetString("adcs-auth.krb5conf")
+		} else {
+			if !viper.IsSet("adcs-auth.realm") && !viper.IsSet("adcs-auth.kdcs") {
+				fmt.Fprintf(
+					os.Stderr,
+					"error: auth method kerberos requires either krb5conf or both realm and kdcs to be set\n",
+				)
+				os.Exit(1)
+			}
+			adcsAuthRealm = strings.ToLower(viper.GetString("adcs-auth.realm"))
+			adcsAuthKdcs = viper.GetStringSlice("adcs-auth.kdcs")
+		}
+	}
+
+	certConfig := &http.CertConfig{
 		AdcsUrl:          adcsUrl,
 		OidTemplate:      oidTemplate,
-		AdcsAuthMethod:   adcsAuthMethod,
 		AdcsAuthKrb5conf: adcsAuthKrb5conf,
 		AdcsAuthRealm:    adcsAuthRealm,
 		AdcsAuthKdcs:     adcsAuthKdcs,
 	}
+	certConfig.SetAuthMethodString(adcsAuthMethod)
+
+	return certConfig
 }
 
 // certCmd represents the cert command
@@ -114,22 +141,25 @@ func adcs(cmd *cobra.Command, args []string) {
 	}
 }
 
-func init() {
+func initCert() {
 	RootCmd.AddCommand(certCmd)
 
 	adcsCmd.Flags().String("adcs-url", "", "AD Certificate Services endpoint url")
 	adcsCmd.Flags().String("oid-template", "", "OID string usually selected in the ADCS template dropdown")
-	adcsCmd.Flags().String("auth", "kerberos", "Authorization method for AD Certificate Services endpoint: kerberos or ntlm")
+	adcsCmd.Flags().String("auth", "", "Authorization method for AD Certificate Services endpoint: ntlm or kerberos")
 	adcsCmd.Flags().String("krb5conf", "", "Path to a kerberos config file containing realms (with KDCs) and domain_realm sections in lieu of specifying kdcs")
 	adcsCmd.Flags().String("realm", "", "Realm to use for kerberos authentiation")
 	adcsCmd.Flags().StringSlice("kdcs", []string{}, "A comma separated list of KDC servers to use for kerberos authentiation")
 
 	viper.BindPFlag("adcs-url", adcsCmd.Flags().Lookup("adcs-url"))
 	viper.BindPFlag("oid-template", adcsCmd.Flags().Lookup("oid-template"))
-	viper.BindPFlag("auth", adcsCmd.Flags().Lookup("auth"))
-	viper.BindPFlag("krb5conf", adcsCmd.Flags().Lookup("krb5conf"))
-	viper.BindPFlag("realm", adcsCmd.Flags().Lookup("realm"))
-	viper.BindPFlag("kdcs", adcsCmd.Flags().Lookup("kdcs"))
+	viper.BindPFlag("adcs-auth.method", adcsCmd.Flags().Lookup("auth"))
+	viper.BindPFlag("adcs-auth.krb5conf", adcsCmd.Flags().Lookup("krb5conf"))
+	viper.BindPFlag("adcs-auth.realm", adcsCmd.Flags().Lookup("realm"))
+	viper.BindPFlag("adcs-auth.kdcs", adcsCmd.Flags().Lookup("kdcs"))
+
+	// setting the default in the String() func above does not work
+	viper.SetDefault("adcs-auth.method", "ntlm")
 
 	// add adcs sub-command
 	certCmd.AddCommand(adcsCmd)

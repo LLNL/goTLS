@@ -106,7 +106,7 @@ email: %s
 	}
 }
 
-func init() {
+func initCsr() {
 	// define flags
 	csrCmd.Flags().StringP("email", "e", "", "Email address to submit")
 	csrCmd.Flags().StringP("c", "c", "", "Country field for CSR")

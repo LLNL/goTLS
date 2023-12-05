@@ -32,7 +32,7 @@ var keyCmd = &cobra.Command{
 	},
 }
 
-func init() {
+func initKey() {
 	RootCmd.AddCommand(keyCmd)
 
 	keyCmd.Flags().IntVarP(&rsaSize, "rsa-size", "", 2048, "RSA key size to use")

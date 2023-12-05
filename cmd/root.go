@@ -31,16 +31,28 @@ func Execute() {
 	}
 }
 
+// this init() must be called before other command's init functions in order for the GenerateRevalidateViperKeyFn
+// workaround to take effect
 func init() {
-	cobra.OnInitialize(initConfig)
+	cobra.OnInitialize(GenerateRevalidateViperKeyFn())
 
 	RootCmd.PersistentFlags().StringVar(&confFile, "config", "", "config file (default is $HOME/.gotls.yaml)")
 
 	RootCmd.CompletionOptions.HiddenDefaultCmd = true
+
+	initKey()
+	initCsr()
+	initCert()
+}
+
+// GenerateRevalidateViperKeyFn is used to read flags into nested config structure (workaround spf13/viper issue #368)
+// from https://github.com/spf13/viper/pull/487#issuecomment-685422963
+func GenerateRevalidateViperKeyFn() func() {
+	return func() { initConfig("global") }
 }
 
 // initConfig reads in config file and ENV variables if set.
-func initConfig() {
+func initConfig(keyOrParent string) {
 	if confFile != "" {
 		viper.SetConfigFile(confFile)
 	} else {
@@ -63,4 +75,6 @@ func initConfig() {
 			os.Exit(1)
 		}
 	}
+
+	viper.Set(keyOrParent, viper.AllSettings()[keyOrParent])
 }
