@@ -42,7 +42,9 @@ type CertConfig struct {
 	OidTemplate      string
 	AdcsAuthMethods  AuthMethod
 	AdcsAuthKrb5conf string
+	AdcsAuthUser     string
 	AdcsAuthRealm    string
+	AdcsAuthKeytab   string
 	AdcsAuthKdcs     []string
 }
 

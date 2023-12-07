@@ -48,14 +48,13 @@ func PostAdcsRequest(user, pass, csr string, config *CertConfig) (cert []byte, e
 	}
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
-	// indicate NTLM auth
+	// configure client for auth method
 	if config.HasAuthMethod(Ntlm) {
 		req.SetBasicAuth(user, pass)
 
-		client, err = NewClient(Ntlm, "", "", "", "")
+		client, err = NewClient(Ntlm, "", "", "", "", "")
 	} else if config.HasAuthMethod(Kerberos) {
 		var krb5Config string
-		var err error
 		if config.AdcsAuthKrb5conf != "" {
 			// load krb5 config
 			var configBytes []byte
@@ -72,11 +71,12 @@ func PostAdcsRequest(user, pass, csr string, config *CertConfig) (cert []byte, e
 				return cert, fmt.Errorf("error creating kerberos config: %s", err)
 			}
 			krb5Config = buffer.String()
-
-			//TODO: support keytabs
 		}
 
-		client, err = NewClient(Kerberos, user, pass, config.AdcsAuthRealm, krb5Config)
+		// ensure uppercase realm
+		realm := strings.ToUpper(config.AdcsAuthRealm)
+
+		client, err = NewClient(Kerberos, user, pass, config.AdcsAuthKeytab, realm, krb5Config)
 		if err != nil {
 			return cert, err
 		}

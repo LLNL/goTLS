@@ -11,6 +11,7 @@ import (
 	ntlmssp "github.com/Azure/go-ntlmssp"
 	gokrb5 "github.com/jcmturner/gokrb5/v8/client"
 	gokrb5conf "github.com/jcmturner/gokrb5/v8/config"
+	"github.com/jcmturner/gokrb5/v8/keytab"
 	spnego "github.com/jcmturner/gokrb5/v8/spnego"
 )
 
@@ -21,7 +22,7 @@ type Client struct {
 	krb5Client   *gokrb5.Client
 }
 
-func NewClient(authMethod AuthMethod, user, pass, krb5Realm, krb5Config string) (*Client, error) {
+func NewClient(authMethod AuthMethod, user, pass, keytabFilename, realm, krb5Config string) (*Client, error) {
 	if authMethod == Ntlm {
 		httpClient := &http.Client{
 			Transport: ntlmssp.Negotiator{
@@ -38,7 +39,18 @@ func NewClient(authMethod AuthMethod, user, pass, krb5Realm, krb5Config string) 
 				return nil, fmt.Errorf("error loading kerberos config: %s", err)
 			}
 
-			krb5Client := gokrb5.NewWithPassword(user, krb5Realm, pass, cfg, gokrb5.DisablePAFXFAST(true))
+			var krb5Client *gokrb5.Client
+			if keytabFilename != "" {
+				// authenticate with keytab for credential
+				kt, err := keytab.Load(keytabFilename)
+				if err != nil {
+					return nil, fmt.Errorf("error loading kerberos keytab: %s", err)
+				}
+				krb5Client = gokrb5.NewWithKeytab(user, realm, kt, cfg, gokrb5.DisablePAFXFAST(true))
+			} else {
+				// authenticate with password for credential
+				krb5Client = gokrb5.NewWithPassword(user, realm, pass, cfg, gokrb5.DisablePAFXFAST(true))
+			}
 			err = krb5Client.Login()
 			if err != nil {
 				return nil, fmt.Errorf("error obtaining kerberos ticket: %s", err)

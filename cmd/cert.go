@@ -19,6 +19,9 @@ import (
 )
 
 func getCertConfig(args []string) *http.CertConfig {
+	var adcsAuthKrb5conf, adcsAuthUser, adcsAuthRealm, adcsAuthKeytab string
+	var adcsAuthKdcs []string
+
 	if !viper.IsSet("adcs-url") {
 		fmt.Fprintf(os.Stderr, "error: adcs-url is not set\n")
 		os.Exit(1)
@@ -41,8 +44,10 @@ func getCertConfig(args []string) *http.CertConfig {
 		os.Exit(1)
 	}
 
-	var adcsAuthKrb5conf, adcsAuthRealm string
-	var adcsAuthKdcs []string
+	if viper.IsSet("adcs-auth.user") {
+		adcsAuthUser = viper.GetString("adcs-auth.user")
+	}
+
 	if adcsAuthMethod == "kerberos" {
 		if viper.IsSet("adcs-auth.krb5conf") {
 			adcsAuthKrb5conf = viper.GetString("adcs-auth.krb5conf")
@@ -54,8 +59,15 @@ func getCertConfig(args []string) *http.CertConfig {
 				)
 				os.Exit(1)
 			}
-			adcsAuthRealm = strings.ToLower(viper.GetString("adcs-auth.realm"))
+		}
+		if viper.IsSet("adcs-auth.realm") {
+			adcsAuthRealm = viper.GetString("adcs-auth.realm")
+		}
+		if viper.IsSet("adcs-auth.kdcs") {
 			adcsAuthKdcs = viper.GetStringSlice("adcs-auth.kdcs")
+		}
+		if viper.IsSet("adcs-auth.keytab") {
+			adcsAuthKeytab = viper.GetString("adcs-auth.keytab")
 		}
 	}
 
@@ -63,7 +75,9 @@ func getCertConfig(args []string) *http.CertConfig {
 		AdcsUrl:          adcsUrl,
 		OidTemplate:      oidTemplate,
 		AdcsAuthKrb5conf: adcsAuthKrb5conf,
+		AdcsAuthUser:     adcsAuthUser,
 		AdcsAuthRealm:    adcsAuthRealm,
+		AdcsAuthKeytab:   adcsAuthKeytab,
 		AdcsAuthKdcs:     adcsAuthKdcs,
 	}
 	certConfig.SetAuthMethodString(adcsAuthMethod)
@@ -91,6 +105,9 @@ var adcsCmd = &cobra.Command{
 }
 
 func adcs(cmd *cobra.Command, args []string) {
+	var csr, user, pass string
+	var err error
+
 	// load config
 	config := getCertConfig(args)
 
@@ -98,7 +115,6 @@ func adcs(cmd *cobra.Command, args []string) {
 	csrFileName := args[0]
 
 	// read in CSR
-	var csr string
 	if _, err := os.Stat(csrFileName); err != nil {
 		fmt.Fprintf(os.Stderr, "error accessing CSR file: %s\n", err)
 		os.Exit(1)
@@ -112,16 +128,24 @@ func adcs(cmd *cobra.Command, args []string) {
 	}
 
 	// get username
-	fmt.Printf("Authenticate to AD Certificate Services:\n  username: ")
-	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Scan()
-	user := scanner.Text()
+	if config.AdcsAuthUser != "" {
+		user = config.AdcsAuthUser
+	} else {
+		//TODO: do we want to try the current user if user is not set?
+
+		fmt.Printf("Username for AD Certificate Services: ")
+		scanner := bufio.NewScanner(os.Stdin)
+		scanner.Scan()
+		user = scanner.Text()
+	}
 
 	// get password
-	pass, err := speakeasy.Ask("  password: ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error getting password: %s\n", err)
-		os.Exit(1)
+	if config.AdcsAuthKeytab == "" {
+		pass, err = speakeasy.Ask("Password for AD Certificate Services: ")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error getting password: %s\n", err)
+			os.Exit(1)
+		}
 	}
 
 	// get cert
@@ -148,14 +172,18 @@ func initCert() {
 	adcsCmd.Flags().String("oid-template", "", "OID string usually selected in the ADCS template dropdown")
 	adcsCmd.Flags().String("auth", "", "Authorization method for AD Certificate Services endpoint: ntlm or kerberos")
 	adcsCmd.Flags().String("krb5conf", "", "Path to a kerberos config file containing realms (with KDCs) and domain_realm sections in lieu of specifying kdcs")
-	adcsCmd.Flags().String("realm", "", "Realm to use for kerberos authentiation")
-	adcsCmd.Flags().StringSlice("kdcs", []string{}, "A comma separated list of KDC servers to use for kerberos authentiation")
+	adcsCmd.Flags().StringP("user", "u", "", "Username to use for authentication")
+	adcsCmd.Flags().String("realm", "", "Realm to use for kerberos authentication")
+	adcsCmd.Flags().StringP("keytab", "k", "", "Keytab file to use for kerberos authentication")
+	adcsCmd.Flags().StringSlice("kdcs", []string{}, "A comma separated list of KDC servers to use for kerberos authentication")
 
 	viper.BindPFlag("adcs-url", adcsCmd.Flags().Lookup("adcs-url"))
 	viper.BindPFlag("oid-template", adcsCmd.Flags().Lookup("oid-template"))
 	viper.BindPFlag("adcs-auth.method", adcsCmd.Flags().Lookup("auth"))
 	viper.BindPFlag("adcs-auth.krb5conf", adcsCmd.Flags().Lookup("krb5conf"))
+	viper.BindPFlag("adcs-auth.user", adcsCmd.Flags().Lookup("user"))
 	viper.BindPFlag("adcs-auth.realm", adcsCmd.Flags().Lookup("realm"))
+	viper.BindPFlag("adcs-auth.keytab", adcsCmd.Flags().Lookup("keytab"))
 	viper.BindPFlag("adcs-auth.kdcs", adcsCmd.Flags().Lookup("kdcs"))
 
 	// setting the default in the String() func above does not work
