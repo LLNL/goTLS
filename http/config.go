@@ -6,6 +6,7 @@ package http
 
 import (
 	"fmt"
+	"net"
 )
 
 const (
@@ -36,6 +37,18 @@ const Krb5Config = `[libdefaults]
 `
 
 type AuthMethod byte
+
+type CsrConfig struct {
+	CN    string
+	C     string
+	ST    string
+	L     string
+	O     string
+	OU    string
+	Email string
+	DNS   []string
+	IP    []net.IP
+}
 
 type CertConfig struct {
 	AdcsUrl          string

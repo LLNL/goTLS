@@ -36,7 +36,8 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(GenerateRevalidateViperKeyFn())
 
-	RootCmd.PersistentFlags().StringVar(&confFile, "config", "", "config file (default is $HOME/.gotls.yaml)")
+	RootCmd.PersistentFlags().StringVar(&confFile, "config", "",
+		"config file (default is ./.gotls.yaml or $HOME/.gotls.yaml)")
 
 	RootCmd.CompletionOptions.HiddenDefaultCmd = true
 
@@ -56,12 +57,13 @@ func initConfig(keyOrParent string) {
 	if confFile != "" {
 		viper.SetConfigFile(confFile)
 	} else {
+		viper.AddConfigPath(".") // override config from the working directory
+
 		home, err := homedir.Dir()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %s\n", err)
 			os.Exit(1)
 		}
-		viper.AddConfigPath(".") // override config from the working directory
 		viper.AddConfigPath(home)
 		viper.SetConfigName(".gotls") // do not set the extension; viper will try all known types
 	}
@@ -69,8 +71,7 @@ func initConfig(keyOrParent string) {
 	viper.AutomaticEnv() // read in environment variables that match
 
 	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			// Config file was found but another error was produced
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok { // Config file was found but another error was produced
 			fmt.Fprintf(os.Stderr, "error: %s\n", err)
 			os.Exit(1)
 		}

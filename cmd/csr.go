@@ -6,6 +6,7 @@ package cmd
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"strings"
 
@@ -13,57 +14,66 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/llnl/gotls/crypto"
+	"github.com/llnl/gotls/http"
 )
 
-type CsrConfig struct {
-	c     string
-	st    string
-	l     string
-	o     string
-	ou    string
-	email string
-	cn    string
-	dns   []string
-}
+func getCsrConfig(args []string) *http.CsrConfig {
+	var cn string
 
-func getCsrConfig(args []string) *CsrConfig {
 	c := viper.GetString("c")
 	st := viper.GetString("st")
 	l := viper.GetString("l")
 	o := viper.GetString("o")
 	ou := viper.GetString("ou")
 	email := viper.GetString("email")
-	var cn string
 
-	// parse dns args
+	// parse remaining args as SAN entries in this order:
+	//    if argument has a prefix of ip: or dns:, strip the prefix and parse as such.
+	//    Without a prefix, try to parse as an IP first, then failing that, assume a dns name.
 	dns := make([]string, 0, len(args))
+	ips := make([]net.IP, 0, len(args))
 	for i, arg := range args {
 		if i == 0 {
-			cn = args[0]
+			cn = arg
 		}
-		dns = append(dns, arg)
+		arg = strings.ToLower(arg)
+		if strings.HasPrefix(arg, "ip:") {
+			if ip := net.ParseIP(strings.TrimPrefix(arg, "ip:")); ip != nil {
+				ips = append(ips, ip)
+			} else {
+				fmt.Printf("error generating csr: Invalid IP address %s\n", arg)
+				os.Exit(1)
+			}
+		} else if strings.HasPrefix(arg, "dns:") {
+			dns = append(dns, strings.TrimPrefix(arg, "dns:"))
+		} else { // no prefix
+			if ip := net.ParseIP(arg); ip != nil { // try ip first
+				ips = append(ips, ip)
+			} else { // assume dns entry
+				dns = append(dns, arg)
+			}
+		}
 	}
 
-	//TODO: test args for IP, don't assume DNS
-
-	return &CsrConfig{
-		c:     c,
-		st:    st,
-		l:     l,
-		o:     o,
-		ou:    ou,
-		email: email,
-		cn:    cn,
-		dns:   dns,
+	return &http.CsrConfig{
+		CN:    cn,
+		C:     c,
+		ST:    st,
+		L:     l,
+		O:     o,
+		OU:    ou,
+		Email: email,
+		DNS:   dns,
+		IP:    ips,
 	}
 }
 
 // csrCmd represents the csr command
 var csrCmd = &cobra.Command{
-	Use:   "csr primary-hostname.fq.dn [additional-hostname(s)]",
+	Use:   "csr primary-hostname.fq.dn [additional-hostname-or-IP(s)]",
 	Short: "Generate a Certificate Signing Request",
-	Long: `Generate a Certificate Signing Request given a number of hostname(s).
-If a private key matching the given primary hostname exists in the current
+	Long: `Generate a Certificate Signing Request given a number of hostname(s)/ip(s).
+If a private key matching the given primary hostname (first argument) exists in the current
 directory it will be used, otherwise a new key will be created.`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -75,20 +85,28 @@ func csr(cmd *cobra.Command, args []string) {
 	// load flag variables
 	config := getCsrConfig(args)
 
+	// convert IPs to string represenatation
+	ips := make([]string, 0, len(config.IP))
+	for _, ip := range config.IP {
+		ips = append(ips, ip.String())
+	}
+
 	fmt.Printf(`Generating %s.csr with values:
 CN: %s
-SAN: %s
 C: %s
 ST: %s
 L: %s
 O: %s
 OU: %s
-email: %s
+Email: %s
+DNS: %s
+IP: %s
 
-`, config.cn, config.cn, strings.Join(config.dns, " "), config.c, config.st, config.l, config.o, config.ou, config.email)
+`, config.CN, config.CN, config.C, config.ST, config.L, config.O, config.OU, config.Email, strings.Join(config.DNS, ","),
+		strings.Join(ips, ","))
 
-	keyFileName := fmt.Sprintf("%s.key", config.cn)
-	csrFileName := fmt.Sprintf("%s.csr", config.cn)
+	keyFileName := fmt.Sprintf("%s.key", config.CN)
+	csrFileName := fmt.Sprintf("%s.csr", config.CN)
 
 	// get key
 	key, err := crypto.GetKey(keyFileName, rsaSize)
@@ -97,8 +115,8 @@ email: %s
 		os.Exit(1)
 	}
 
-	if _, err := crypto.GenerateCsr(csrFileName, key, config.cn, config.dns, config.c, config.st, config.l, config.o,
-		config.ou, config.email); err != nil {
+	if _, err := crypto.GenerateCsr(csrFileName, key, config.CN, config.C, config.ST, config.L, config.O, config.OU,
+		config.Email, config.DNS, config.IP); err != nil {
 		fmt.Printf("error generating CSR: %s\n", err)
 		os.Exit(1)
 	} else {

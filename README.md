@@ -64,8 +64,18 @@ Using the tool is done in two stages:
 hostname.example-company.com.csr will be created in the current dir. It will also generate
 hostname.example-company.com.key if not previously present.
 
+All provided hostname and ip arguments will be added to the SAN field. The first provided argument will also be set in
+the CN field.
+
+You can optionally specify hostnames with the `dns:` prefix, or IP addresses with the `ip:` prefix, but gotls will
+parse them properly without the prefixes:
+
+    $ gotls csr dns:hostname.example-company.com optional-other-hostname.example-company.com ip:10.17.50.30
+
+
 ### Obtain the certificate from the issuer
 If you have signing authority for an ADCS endpoint, you can obtain the cert:
+
     $ gotls cert adcs hostname.example-company.com.csr
 
 
@@ -82,6 +92,7 @@ Future work
 -----------
 Eventually the tool should be able to:
 - [x] Support kerberos authentication
+- [x] Support IP addresses in the CSR SAN field
 - [ ] Obtain certificates via the ADCS SCEP API (if available on your ADCS
   installation)
 - [ ] Obtain certificates via ACME protocol from Let's Encrypt
@@ -93,8 +104,8 @@ License
 goTLS is distributed under the terms of the MIT license. All new contributions
 must be made under this license.
 
-See [LICENSE](https://github.com/llnl/gotls/blob/develop/LICENSE) and
-[NOTICE](https://github.com/llnl/gotls/blob/develop/NOTICE) for details.
+See [LICENSE](https://github.com/llnl/gotls/blob/master/LICENSE) and
+[NOTICE](https://github.com/llnl/gotls/blob/master/NOTICE) for details.
 
 SPDX-License-Identifier: MIT
 

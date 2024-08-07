@@ -12,6 +12,7 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"fmt"
+	"net"
 	"os"
 )
 
@@ -70,7 +71,7 @@ func GetKey(fileName string, rsaSize int) (key *rsa.PrivateKey, err error) {
 	return
 }
 
-func GenerateCsr(fileName string, key *rsa.PrivateKey, cn string, dns []string, c, st, l, o, ou, email string) (block *pem.Block, err error) {
+func GenerateCsr(fileName string, key *rsa.PrivateKey, cn, c, st, l, o, ou, email string, dns []string, ips []net.IP) (block *pem.Block, err error) {
 	// populate subject fields (designating CN as required)
 	subject := pkix.Name{
 		CommonName: cn,
@@ -104,7 +105,6 @@ func GenerateCsr(fileName string, key *rsa.PrivateKey, cn string, dns []string, 
 	}
 	//TODO: StreetAddress
 	//TODO: PostalCode
-	//TODO: IPAddresses
 
 	basicConstraints, err := asn1.Marshal(BasicConstraints{false})
 	if err != nil {
@@ -132,6 +132,9 @@ func GenerateCsr(fileName string, key *rsa.PrivateKey, cn string, dns []string, 
 	}
 	if len(dns) > 0 {
 		template.DNSNames = dns
+	}
+	if len(ips) > 0 {
+		template.IPAddresses = ips
 	}
 
 	// create CSR
