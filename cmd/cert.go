@@ -88,43 +88,47 @@ func getCertConfig(args []string) *http.CertConfig {
 // certCmd represents the cert command
 var certCmd = &cobra.Command{
 	Use:   "cert",
-	Short: "Generate a certificate signed by the configured authority",
+	Short: "Obtain certificates signed by the configured authority",
 	Long: `Contacts the given signing authority and obtains a signed TLS
 certificate corresponding to the given CSR`,
 	Args: cobra.MinimumNArgs(1),
 }
 
 var adcsCmd = &cobra.Command{
-	Use:   "adcs filename.csr",
-	Short: "Obtains certificate from Microsoft AD Certificate Services",
-	Long:  `Obtains a signed certificate from Microsoft AD Certificate Services`,
-	Args:  cobra.ExactArgs(1),
+	Use:   "adcs filename.csr [additional.csr]",
+	Short: "Obtains certificates from Microsoft ADCS",
+	Long:  `Obtains signed certificates from Microsoft AD Certificate Services`,
+	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		adcs(cmd, args)
 	},
 }
 
 func adcs(cmd *cobra.Command, args []string) {
-	var csr, user, pass string
+	var csrs []http.CsrRequest
+	var user, pass string
 	var err error
 
 	// load config
 	config := getCertConfig(args)
 
-	// get CSR filename
-	csrFileName := args[0]
-
-	// read in CSR
-	if _, err := os.Stat(csrFileName); err != nil {
-		fmt.Fprintf(os.Stderr, "error accessing CSR file: %s\n", err)
-		os.Exit(1)
-	} else { // CSR file exists
-		csrBytes, err := os.ReadFile(csrFileName)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error reading CSR file: %s\n", err)
+	// read CSR files
+	for _, csrFilename := range args {
+		// read in CSR
+		if _, err := os.Stat(csrFilename); err != nil {
+			fmt.Fprintf(os.Stderr, "error accessing CSR file %s: %s\n", csrFilename, err)
 			os.Exit(1)
+		} else { // CSR file exists
+			csrBytes, err := os.ReadFile(csrFilename)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error reading CSR file %s: %s\n", csrFilename, err)
+				os.Exit(1)
+			}
+			csrs = append(csrs, http.CsrRequest{
+				Content:  csrBytes,
+				Filename: csrFilename,
+			})
 		}
-		csr = string(csrBytes)
 	}
 
 	// get username
@@ -148,20 +152,25 @@ func adcs(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// get cert
-	cert, err := http.PostAdcsRequest(user, pass, csr, config)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error getting cert: %s\n", err)
-		os.Exit(1)
-	}
+	// get certs
+	certs, err := http.PostAdcsRequest(user, pass, csrs, config)
+	for _, cert := range certs {
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error getting cert for %s: %s\n", cert.CsrFilename, err)
+			os.Exit(1)
+		} else if cert.Error != nil {
+			fmt.Fprintf(os.Stderr, "error getting cert for %s: %s\n", cert.CsrFilename, cert.Error)
+			os.Exit(1)
+		}
 
-	//TODO: move existing cert to .old?
+		//TODO: move existing cert to .old?
 
-	// write cert
-	certFileName := fmt.Sprintf("%s.crt", strings.TrimSuffix(csrFileName, ".csr"))
-	if err = crypto.WriteCert(certFileName, cert); err != nil {
-		fmt.Fprintf(os.Stderr, "error writing cert: %s\n", err)
-		os.Exit(1)
+		// write cert
+		certFilename := fmt.Sprintf("%s.crt", strings.TrimSuffix(cert.CsrFilename, ".csr"))
+		if err = crypto.WriteCert(certFilename, cert.Cert); err != nil {
+			fmt.Fprintf(os.Stderr, "error writing cert: %s\n", err)
+			os.Exit(1)
+		}
 	}
 }
 
