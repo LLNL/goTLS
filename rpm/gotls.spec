@@ -28,12 +28,14 @@ make %{?_smp_mflags}
 %install
 mkdir -p %{buildroot}%{_bindir}
 mkdir -p %{buildroot}%{_mandir}/man8
+mkdir -p %{buildroot}%{_datadir}/bash-completion/completions
 install -p -m 755 gotls %{buildroot}%{_bindir}/gotls
 install -p -m 644 rpm/man/gotls.8 %{buildroot}%{_mandir}/man8/gotls.8
 install -p -m 644 rpm/man/gotls-cert.8 %{buildroot}%{_mandir}/man8/gotls-cert.8
 install -p -m 644 rpm/man/gotls-cert-adcs.8 %{buildroot}%{_mandir}/man8/gotls-cert-adcs.8
 install -p -m 644 rpm/man/gotls-csr.8 %{buildroot}%{_mandir}/man8/gotls-csr.8
 install -p -m 644 rpm/man/gotls-key.8 %{buildroot}%{_mandir}/man8/gotls-key.8
+install -p -m 644 rpm/bash/completion.bash %{buildroot}%{_datadir}/bash-completion/completions/gotls
 
 %clean
 rm -rf ${RPM_BUILD_ROOT}
@@ -45,6 +47,7 @@ rm -rf ${RPM_BUILD_ROOT}
 %{_mandir}/man8/gotls-cert-adcs.8*
 %{_mandir}/man8/gotls-csr.8*
 %{_mandir}/man8/gotls-key.8*
+%{_datadir}/bash-completion/completions/gotls
 
 #%doc README
 %license LICENSE
