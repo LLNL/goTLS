@@ -30,7 +30,7 @@ type CertResponse struct {
 	Error       error
 }
 
-func PostAdcsRequest(user, pass string, csrs []CsrRequest, config *CertConfig) (certs []CertResponse, err error) {
+func PostAdcsRequest(user, pass string, csrs []CsrRequest, config *CertConfig, verbose bool) (certs []CertResponse, err error) {
 	var client *Client
 	var certResp *http.Response
 
@@ -75,14 +75,21 @@ func PostAdcsRequest(user, pass string, csrs []CsrRequest, config *CertConfig) (
 		realm := strings.ToUpper(config.AdcsAuthRealm)
 
 		client, err = NewClient(Kerberos, user, pass, config.AdcsAuthKeytab, realm, krb5Config)
-		if err != nil {
-			return certs, err
-		}
-		defer client.Destroy()
+	}
+	if verbose {
+		fmt.Printf("client auth method: %s\n", config.AdcsAuthMethods.String())
 	}
 
+	if err != nil {
+		return certs, err
+	}
+	defer client.Destroy()
+
 	for _, csr := range csrs {
-		fmt.Printf("Processing %s...\n", csr.Filename)
+		if verbose {
+			fmt.Printf("processing %s\n", csr.Filename)
+			fmt.Printf("post request: %s\n", certfnshUrl.String())
+		}
 
 		// build POST data
 		form := url.Values{}
@@ -145,6 +152,10 @@ func PostAdcsRequest(user, pass string, csrs []CsrRequest, config *CertConfig) (
 			})
 			err = fmt.Errorf("error getting cert")
 			continue
+		}
+
+		if verbose {
+			fmt.Printf("get request: %s\n", certnewUrl.String())
 		}
 
 		query := certnewUrl.Query()

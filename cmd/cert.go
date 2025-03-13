@@ -128,6 +128,9 @@ func adcs(cmd *cobra.Command, args []string) {
 				Content:  csrBytes,
 				Filename: csrFilename,
 			})
+			if verbose {
+				fmt.Printf("read %s\n", csrFilename)
+			}
 		}
 	}
 
@@ -153,12 +156,13 @@ func adcs(cmd *cobra.Command, args []string) {
 	}
 
 	// get certs
-	certs, err := http.PostAdcsRequest(user, pass, csrs, config)
+	certs, err := http.PostAdcsRequest(user, pass, csrs, config, verbose)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %s\n", err)
+		os.Exit(1)
+	}
 	for _, cert := range certs {
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error getting cert for %s: %s\n", cert.CsrFilename, err)
-			os.Exit(1)
-		} else if cert.Error != nil {
+		if cert.Error != nil {
 			fmt.Fprintf(os.Stderr, "error getting cert for %s: %s\n", cert.CsrFilename, cert.Error)
 			os.Exit(1)
 		}

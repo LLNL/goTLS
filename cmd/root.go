@@ -14,6 +14,7 @@ import (
 )
 
 var confFile string
+var verbose bool
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
@@ -38,6 +39,7 @@ func init() {
 
 	RootCmd.PersistentFlags().StringVar(&confFile, "config", "",
 		"config file (default is ./.gotls.yaml or $HOME/.gotls.yaml)")
+	RootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enables verbose output")
 
 	RootCmd.CompletionOptions.HiddenDefaultCmd = true
 
@@ -75,6 +77,10 @@ func initConfig(keyOrParent string) {
 			fmt.Fprintf(os.Stderr, "error: %s\n", err)
 			os.Exit(1)
 		}
+	}
+
+	if verbose {
+		fmt.Printf("config file: %s\n", viper.ConfigFileUsed())
 	}
 
 	viper.Set(keyOrParent, viper.AllSettings()[keyOrParent])
