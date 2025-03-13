@@ -91,7 +91,8 @@ func csr(cmd *cobra.Command, args []string) {
 		ips = append(ips, ip.String())
 	}
 
-	fmt.Printf(`Generating %s.csr with values:
+	if verbose {
+		fmt.Printf(`Generating %s.csr with values:
 CN: %s
 C: %s
 ST: %s
@@ -101,10 +102,9 @@ OU: %s
 Email: %s
 DNS: %s
 IP: %s
-
 `, config.CN, config.CN, config.C, config.ST, config.L, config.O, config.OU, config.Email, strings.Join(config.DNS, ","),
-		strings.Join(ips, ","))
-
+			strings.Join(ips, ","))
+	}
 	keyFileName := fmt.Sprintf("%s.key", config.CN)
 	csrFileName := fmt.Sprintf("%s.csr", config.CN)
 
