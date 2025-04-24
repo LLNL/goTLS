@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 )
 
 type BasicConstraints struct {
@@ -24,19 +25,24 @@ func GetKey(fileName string, rsaSize int) (key *rsa.PrivateKey, err error) {
 	// check for existing key
 	if _, err = os.Stat(fileName); err == nil { // key exists
 		fmt.Printf("loading existing private key %s\n", fileName)
-		keyBytes, err := os.ReadFile(fileName)
-		if err != nil {
-			return key, err
+		keyBytes, innerErr := os.ReadFile(fileName)
+		if innerErr != nil {
+			return key, fmt.Errorf("while opening %s for reading: %s", fileName, innerErr)
 		}
 
 		block, _ := pem.Decode(keyBytes)
-		if block == nil {
-			return key, fmt.Errorf("could not decode private key")
+		if block == nil || !strings.HasSuffix(block.Type, "PRIVATE KEY") {
+			return key, fmt.Errorf("could not parse PEM block with type ending in PRIVATE KEY in file")
 		}
 
-		key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+		key, err = x509.ParsePKCS1PrivateKey(block.Bytes)
 		if err != nil {
-			return key, fmt.Errorf("invalid pkcs1 key format: %s", err)
+			return key, fmt.Errorf("invalid pkcs key format: %s", err)
+		}
+
+		err = key.Validate()
+		if err != nil {
+			return key, fmt.Errorf("invalid key: %s\n", err)
 		}
 	} else {
 		fmt.Printf("Generating new private key\n")
