@@ -109,7 +109,7 @@ IP: %s
 	csrFileName := fmt.Sprintf("%s.csr", config.CN)
 
 	// get key
-	key, err := crypto.GetKey(keyFileName, rsaSize)
+	key, err := crypto.GetKey(keyFileName, rsaSize, verbose)
 	if err != nil {
 		fmt.Printf("error getting private key: %s\n", err)
 		os.Exit(1)

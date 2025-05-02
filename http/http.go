@@ -99,7 +99,7 @@ func PostAdcsRequest(user, pass string, csrs []CsrRequest, config *CertConfig, v
 		form.Add("Mode", "newreq")
 		form.Add("FriendlyType", fmt.Sprintf("Saved-Request Certificate (%s)", time.Now().Format("1/2/2006, 3:04:05 PM")))
 		form.Add("ThumbPrint", "")
-		form.Add("CertAttrib", fmt.Sprintf("CertificateTemplate:%s\r\nUserAgent:Go-http-client/1.1\r\n", config.OidTemplate))
+		form.Add("CertAttrib", fmt.Sprintf("CertificateTemplate:%s\r\nUserAgent:GoTLS/0.2\r\n", config.OidTemplate))
 		body := strings.NewReader(form.Encode())
 
 		// build request

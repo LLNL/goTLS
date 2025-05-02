@@ -5,6 +5,9 @@
 package crypto
 
 import (
+	"crypto/dsa"
+	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -21,10 +24,12 @@ type BasicConstraints struct {
 	IsCA bool `asn1:"optional"`
 }
 
-func GetKey(fileName string, rsaSize int) (key *rsa.PrivateKey, err error) {
+func GetKey(fileName string, rsaSize int, verbose bool) (key any, err error) {
 	// check for existing key
 	if _, err = os.Stat(fileName); err == nil { // key exists
-		fmt.Printf("loading existing private key %s\n", fileName)
+		if verbose {
+			fmt.Printf("loading existing private key from %s\n", fileName)
+		}
 		keyBytes, innerErr := os.ReadFile(fileName)
 		if innerErr != nil {
 			return key, fmt.Errorf("while opening %s for reading: %s", fileName, innerErr)
@@ -32,30 +37,67 @@ func GetKey(fileName string, rsaSize int) (key *rsa.PrivateKey, err error) {
 
 		block, _ := pem.Decode(keyBytes)
 		if block == nil || !strings.HasSuffix(block.Type, "PRIVATE KEY") {
-			return key, fmt.Errorf("could not parse PEM block with type ending in PRIVATE KEY in file")
+			return key, fmt.Errorf("could not parse PEM block with type ending in PRIVATE KEY")
 		}
 
-		key, err = x509.ParsePKCS1PrivateKey(block.Bytes)
-		if err != nil {
-			return key, fmt.Errorf("invalid pkcs key format: %s", err)
+		// attempt to parse any private key type
+		success := false
+		keyType := ""
+		containerType := ""
+		if key, err = x509.ParsePKCS1PrivateKey(block.Bytes); err == nil { // PKCS#1 RSA key
+			success = true
+			keyType = "RSA"
+			containerType = "PKCS#1"
 		}
-
-		err = key.Validate()
-		if err != nil {
-			return key, fmt.Errorf("invalid key: %s\n", err)
+		if !success {
+			if key, err = x509.ParsePKCS8PrivateKey(block.Bytes); err == nil { // PKCS#8 key
+				success = true
+				containerType = "PKCS#8"
+				switch key := key.(type) {
+				case *rsa.PrivateKey:
+					err = (*rsa.PrivateKey)(key).Validate()
+					if err != nil {
+						return nil, fmt.Errorf("invalid key: %s\n", err)
+					}
+					keyType = "RSA"
+				case *dsa.PrivateKey:
+					keyType = "DSA"
+				case *ecdsa.PrivateKey:
+					keyType = "ECDSA"
+				case ed25519.PrivateKey:
+					keyType = "Ed25519"
+				default:
+					return nil, fmt.Errorf("could not parse private key in PKCS#8 format")
+				}
+			}
+		}
+		if !success {
+			if key, err = x509.ParseECPrivateKey(block.Bytes); err == nil { // SEC 1 ECSDA key
+				keyType = "ECDSA"
+				containerType = "SEC 1"
+			}
+		}
+		if !success {
+			return nil, fmt.Errorf("could not parse private key: invalid/unrecognized key format")
+		}
+		if verbose {
+			fmt.Printf("read %s key in %s format\n", keyType, containerType)
 		}
 	} else {
-		fmt.Printf("Generating new private key\n")
-		// generate private key
-		key, err = rsa.GenerateKey(rand.Reader, rsaSize)
-		if err != nil {
-			return
+		if verbose {
+			fmt.Printf("Generating new private key\n")
 		}
+		// generate private key
+		genkey, err := rsa.GenerateKey(rand.Reader, rsaSize)
+		if err != nil {
+			return nil, err
+		}
+		key = genkey
 
 		// get PEM block for private key
 		block := &pem.Block{
 			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(key),
+			Bytes: x509.MarshalPKCS1PrivateKey(genkey),
 		}
 
 		// write out PEM block to file
@@ -77,7 +119,7 @@ func GetKey(fileName string, rsaSize int) (key *rsa.PrivateKey, err error) {
 	return
 }
 
-func GenerateCsr(fileName string, key *rsa.PrivateKey, cn, c, st, l, o, ou, email string, dns []string, ips []net.IP) (block *pem.Block, err error) {
+func GenerateCsr(fileName string, key any, cn, c, st, l, o, ou, email string, dns []string, ips []net.IP) (block *pem.Block, err error) {
 	// populate subject fields (designating CN as required)
 	subject := pkix.Name{
 		CommonName: cn,

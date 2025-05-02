@@ -25,7 +25,7 @@ var keyCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		keyFileName := fmt.Sprintf("%s.key", args[0])
 
-		if _, err := crypto.GetKey(keyFileName, rsaSize); err != nil {
+		if _, err := crypto.GetKey(keyFileName, rsaSize, verbose); err != nil {
 			fmt.Printf("Error getting private key: %s\n", err)
 			os.Exit(1)
 		}
