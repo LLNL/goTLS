@@ -92,7 +92,6 @@ func GetKey(fileName string, rsaSize int, verbose bool) (key any, err error) {
 		if err != nil {
 			return nil, err
 		}
-		key = genkey
 
 		// get PEM block for private key
 		block := &pem.Block{
@@ -114,6 +113,8 @@ func GetKey(fileName string, rsaSize int, verbose bool) (key any, err error) {
 		}
 
 		fmt.Printf("wrote private key to %s\n", fileName)
+
+		return genkey, nil
 	}
 
 	return
