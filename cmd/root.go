@@ -5,7 +5,7 @@
 package cmd
 
 import (
-	"fmt"
+	"log/slog"
 	"os"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/viper"
 )
 
+var logLevel *slog.LevelVar
 var confFile string
 var verbose bool
 
@@ -22,14 +23,22 @@ var RootCmd = &cobra.Command{
 	Short: "gotls is a TLS certificate issuance and management tool",
 	Long: `gotls can generate keys, CSRs, and obtain a certificate
 from an Active Directory Certificate Services endpoint.`,
+	SilenceErrors: true,
+	SilenceUsage:  true,
+	Run: func(cmd *cobra.Command, args []string) {
+		cmd.Help()
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
-func Execute() {
+func Execute(level *slog.LevelVar) (err error) {
+	logLevel = level
+
 	if err := RootCmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %s\n", err)
-		os.Exit(1)
+		return err
 	}
+
+	return
 }
 
 // this init() must be called before other command's init functions in order for the GenerateRevalidateViperKeyFn
@@ -63,7 +72,7 @@ func initConfig(keyOrParent string) {
 
 		home, err := homedir.Dir()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: %s\n", err)
+			slog.Error("error", "error", slog.Any("error", err))
 			os.Exit(1)
 		}
 		viper.AddConfigPath(home)
@@ -74,14 +83,16 @@ func initConfig(keyOrParent string) {
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok { // Config file was found but another error was produced
-			fmt.Fprintf(os.Stderr, "error: %s\n", err)
+			slog.Error("error", "error", slog.Any("error", err))
 			os.Exit(1)
 		}
 	}
 
+	// update log level to debug (after viper and cobra are initialized)
 	if verbose {
-		fmt.Printf("config file: %s\n", viper.ConfigFileUsed())
+		logLevel.Set(slog.LevelDebug)
 	}
+	slog.Debug("read config file", "filename", viper.ConfigFileUsed())
 
 	viper.Set(keyOrParent, viper.AllSettings()[keyOrParent])
 }

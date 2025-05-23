@@ -7,6 +7,7 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -23,24 +24,24 @@ func getCertConfig(args []string) *http.CertConfig {
 	var adcsAuthKdcs []string
 
 	if !viper.IsSet("adcs-url") {
-		fmt.Fprintf(os.Stderr, "error: adcs-url is not set\n")
+		slog.Error("adcs-url is not set")
 		os.Exit(1)
 	}
 	adcsUrl := viper.GetString("adcs-url")
 
 	if !viper.IsSet("oid-template") {
-		fmt.Fprintf(os.Stderr, "error: oid-template is not set\n")
+		slog.Error("oid-template is not set")
 		os.Exit(1)
 	}
 	oidTemplate := viper.GetString("oid-template")
 
 	if !viper.IsSet("adcs-auth.method") {
-		fmt.Fprintf(os.Stderr, "error: auth method is not set\n")
+		slog.Error("adcs-auth.method is not set")
 		os.Exit(1)
 	}
 	adcsAuthMethod := strings.ToLower(viper.GetString("adcs-auth.method"))
 	if _, ok := http.AuthMethodMap[adcsAuthMethod]; !ok {
-		fmt.Fprintf(os.Stderr, "error: invalid auth method %s\n", adcsAuthMethod)
+		slog.Error("invalid auth method", "adcs-auth.method", adcsAuthMethod)
 		os.Exit(1)
 	}
 
@@ -53,10 +54,7 @@ func getCertConfig(args []string) *http.CertConfig {
 			adcsAuthKrb5conf = viper.GetString("adcs-auth.krb5conf")
 		} else {
 			if !viper.IsSet("adcs-auth.realm") && !viper.IsSet("adcs-auth.kdcs") {
-				fmt.Fprintf(
-					os.Stderr,
-					"error: auth method kerberos requires either krb5conf or both realm and kdcs to be set\n",
-				)
+				slog.Error("auth method kerberos requires either krb5conf or both realm and kdcs to be set")
 				os.Exit(1)
 			}
 		}
@@ -116,21 +114,19 @@ func adcs(cmd *cobra.Command, args []string) {
 	for _, csrFilename := range args {
 		// read in CSR
 		if _, err := os.Stat(csrFilename); err != nil {
-			fmt.Fprintf(os.Stderr, "error accessing CSR file %s: %s\n", csrFilename, err)
+			slog.Error("could not access CSR file", "filename", csrFilename, "error", slog.Any("error", err))
 			os.Exit(1)
 		} else { // CSR file exists
 			csrBytes, err := os.ReadFile(csrFilename)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "error reading CSR file %s: %s\n", csrFilename, err)
+				slog.Error("could not read CSR file", "filename", csrFilename, "error", slog.Any("error", err))
 				os.Exit(1)
 			}
 			csrs = append(csrs, http.CsrRequest{
 				Content:  csrBytes,
 				Filename: csrFilename,
 			})
-			if verbose {
-				fmt.Printf("read %s\n", csrFilename)
-			}
+			slog.Debug("read csr", "filename", csrFilename)
 		}
 	}
 
@@ -150,31 +146,32 @@ func adcs(cmd *cobra.Command, args []string) {
 	if config.AdcsAuthKeytab == "" {
 		pass, err = speakeasy.Ask("Password for AD Certificate Services: ")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error getting password: %s\n", err)
+			slog.Error("could not get password", "error", slog.Any("error", err))
 			os.Exit(1)
 		}
 	}
 
 	// get certs
-	certs, err := http.PostAdcsRequest(user, pass, csrs, config, verbose)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %s\n", err)
-		os.Exit(1)
-	}
-	for _, cert := range certs {
-		if cert.Error != nil {
-			fmt.Fprintf(os.Stderr, "error getting cert for %s: %s\n", cert.CsrFilename, cert.Error)
-			os.Exit(1)
-		}
+	certs, errors := http.PostAdcsRequest(user, pass, csrs, config)
 
+	// write successful certs
+	for _, cert := range certs {
 		//TODO: move existing cert to .old?
 
 		// write cert
-		certFilename := fmt.Sprintf("%s.crt", strings.TrimSuffix(cert.CsrFilename, ".csr"))
-		if err = crypto.WriteCert(certFilename, cert.Cert); err != nil {
-			fmt.Fprintf(os.Stderr, "error writing cert: %s\n", err)
+		if err := crypto.WriteCert(cert.Filename, cert.Cert); err != nil {
+			slog.Error("could not write cert", "filename", cert.Filename, "error", slog.Any("error", err))
 			os.Exit(1)
 		}
+	}
+
+	// handle errors
+	if len(errors) > 0 {
+		for _, err := range errors {
+			slog.Error("error", slog.Any("error", err))
+		}
+
+		os.Exit(1)
 	}
 }
 

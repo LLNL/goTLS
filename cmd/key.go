@@ -6,6 +6,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -25,8 +26,8 @@ var keyCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		keyFileName := fmt.Sprintf("%s.key", args[0])
 
-		if _, err := crypto.GetKey(keyFileName, rsaSize, verbose); err != nil {
-			fmt.Printf("Error getting private key: %s\n", err)
+		if _, err := crypto.GetKey(keyFileName, rsaSize); err != nil {
+			slog.Error("could not get private key", "filename", keyFileName, "error", slog.Any("error", err))
 			os.Exit(1)
 		}
 	},

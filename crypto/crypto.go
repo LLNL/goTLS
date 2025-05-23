@@ -15,6 +15,7 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"strings"
@@ -24,20 +25,19 @@ type BasicConstraints struct {
 	IsCA bool `asn1:"optional"`
 }
 
-func GetKey(fileName string, rsaSize int, verbose bool) (key any, err error) {
+func GetKey(fileName string, rsaSize int) (key any, err error) {
 	// check for existing key
 	if _, err = os.Stat(fileName); err == nil { // key exists
-		if verbose {
-			fmt.Printf("loading existing private key from %s\n", fileName)
-		}
+		slog.Debug("loading existing private key", "filename", fileName)
+
 		keyBytes, innerErr := os.ReadFile(fileName)
 		if innerErr != nil {
-			return key, fmt.Errorf("while opening %s for reading: %s", fileName, innerErr)
+			return nil, fmt.Errorf("could not read file: %w", innerErr)
 		}
 
 		block, _ := pem.Decode(keyBytes)
 		if block == nil || !strings.HasSuffix(block.Type, "PRIVATE KEY") {
-			return key, fmt.Errorf("could not parse PEM block with type ending in PRIVATE KEY")
+			return nil, fmt.Errorf("could not parse PEM block with type ending in PRIVATE KEY")
 		}
 
 		// attempt to parse any private key type
@@ -57,7 +57,7 @@ func GetKey(fileName string, rsaSize int, verbose bool) (key any, err error) {
 				case *rsa.PrivateKey:
 					err = (*rsa.PrivateKey)(key).Validate()
 					if err != nil {
-						return nil, fmt.Errorf("invalid key: %s\n", err)
+						return nil, fmt.Errorf("invalid key: %w", err)
 					}
 					keyType = "RSA"
 				case *dsa.PrivateKey:
@@ -80,13 +80,10 @@ func GetKey(fileName string, rsaSize int, verbose bool) (key any, err error) {
 		if !success {
 			return nil, fmt.Errorf("could not parse private key: invalid/unrecognized key format")
 		}
-		if verbose {
-			fmt.Printf("read %s key in %s format\n", keyType, containerType)
-		}
+		slog.Debug("read private key", "filename", fileName, "type", keyType, "container", containerType)
 	} else {
-		if verbose {
-			fmt.Printf("Generating new private key\n")
-		}
+		slog.Debug("generating new private key", "filename", fileName)
+
 		// generate private key
 		genkey, err := rsa.GenerateKey(rand.Reader, rsaSize)
 		if err != nil {
@@ -102,17 +99,17 @@ func GetKey(fileName string, rsaSize int, verbose bool) (key any, err error) {
 		// write out PEM block to file
 		keyFile, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 		if err != nil {
-			return key, fmt.Errorf("while opening %s for writing: %s", fileName, err)
+			return nil, fmt.Errorf("could not open file for writing: %w", err)
 		}
 		if err := pem.Encode(keyFile, block); err != nil {
 			keyFile.Close()
-			return key, fmt.Errorf("failed to write data to %s: %s", fileName, err)
+			return nil, fmt.Errorf("could not write data: %w", err)
 		}
 		if err := keyFile.Close(); err != nil {
-			return key, fmt.Errorf("while closing %s: %s", fileName, err)
+			return nil, fmt.Errorf("could not close file: %w", err)
 		}
 
-		fmt.Printf("wrote private key to %s\n", fileName)
+		slog.Info("wrote private key", "filename", fileName)
 
 		return genkey, nil
 	}
@@ -157,7 +154,7 @@ func GenerateCsr(fileName string, key any, cn, c, st, l, o, ou, email string, dn
 
 	basicConstraints, err := asn1.Marshal(BasicConstraints{false})
 	if err != nil {
-		return block, fmt.Errorf("could not encode CA constraint into asn1 format: %s", err)
+		return nil, fmt.Errorf("could not encode CA constraint into asn1 format: %w", err)
 	}
 
 	// populate CSR template
@@ -189,7 +186,7 @@ func GenerateCsr(fileName string, key any, cn, c, st, l, o, ou, email string, dn
 	// create CSR
 	der, err := x509.CreateCertificateRequest(rand.Reader, template, key)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	// get PEM block for CSR
@@ -201,33 +198,34 @@ func GenerateCsr(fileName string, key any, cn, c, st, l, o, ou, email string, dn
 	// write out PEM block to file
 	csrFile, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
-		return block, fmt.Errorf("while opening %s for writing: %s", fileName, err)
+		return block, fmt.Errorf("could not open file for writing: %w", err)
 	}
 	if err := pem.Encode(csrFile, block); err != nil {
 		csrFile.Close()
-		return block, fmt.Errorf("failed to write data to %s: %s", fileName, err)
+		return block, fmt.Errorf("could not write data: %w", err)
 	}
 	if err := csrFile.Close(); err != nil {
-		return block, fmt.Errorf("while closing %s: %s", fileName, err)
+		return block, fmt.Errorf("could not close file: %w", err)
 	}
 
-	return
+	return block, nil
 }
 
 func WriteCert(fileName string, cert []byte) (err error) {
 	certFile, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
-		return
+		return fmt.Errorf("could not open file for writing: %w", err)
 	}
 	_, err = certFile.Write(cert)
 	if err != nil {
-		return
+		return fmt.Errorf("could not write data: %w", err)
 	}
-	fmt.Printf("wrote %s\n", fileName)
+
+	slog.Info("wrote certificate", "filename", fileName)
 
 	if err := certFile.Close(); err != nil {
-		return fmt.Errorf("while closing %s: %s", fileName, err)
+		return fmt.Errorf("could not close file: %w", err)
 	}
 
-	return
+	return nil
 }

@@ -36,7 +36,7 @@ func NewClient(authMethod AuthMethod, user, pass, keytabFilename, realm, krb5Con
 		if krb5Config != "" {
 			cfg, err := gokrb5conf.NewFromString(krb5Config)
 			if err != nil {
-				return nil, fmt.Errorf("error loading kerberos config: %s", err)
+				return nil, fmt.Errorf("could not load kerberos config: %w", err)
 			}
 
 			var krb5Client *gokrb5.Client
@@ -44,7 +44,7 @@ func NewClient(authMethod AuthMethod, user, pass, keytabFilename, realm, krb5Con
 				// authenticate with keytab for credential
 				kt, err := keytab.Load(keytabFilename)
 				if err != nil {
-					return nil, fmt.Errorf("error loading kerberos keytab: %s", err)
+					return nil, fmt.Errorf("could not load kerberos keytab: %w", err)
 				}
 				krb5Client = gokrb5.NewWithKeytab(user, realm, kt, cfg, gokrb5.DisablePAFXFAST(true))
 			} else {
@@ -53,17 +53,17 @@ func NewClient(authMethod AuthMethod, user, pass, keytabFilename, realm, krb5Con
 			}
 			err = krb5Client.Login()
 			if err != nil {
-				return nil, fmt.Errorf("error obtaining kerberos ticket: %s", err)
+				return nil, fmt.Errorf("could not obtain kerberos ticket: %w", err)
 			}
 
 			spnegoClient := spnego.NewClient(krb5Client, nil, "")
 
 			return &Client{spnegoClient: spnegoClient, krb5Client: krb5Client, authMethod: authMethod}, nil
 		} else {
-			return nil, fmt.Errorf("error loading kerberos config: passed configuration is empty")
+			return nil, fmt.Errorf("could not load kerberos config: passed configuration is empty")
 		}
 	} else {
-		return nil, fmt.Errorf("Invalid auth method specified for client: %d\n", authMethod)
+		return nil, fmt.Errorf("invalid auth method specified for client: %d", authMethod)
 	}
 }
 
@@ -73,7 +73,7 @@ func (c *Client) Do(req *http.Request) (*http.Response, error) {
 	} else if c.authMethod == Kerberos {
 		return c.spnegoClient.Do(req)
 	} else {
-		return nil, fmt.Errorf("Invalid auth method specified for client: %d\n", c.authMethod)
+		return nil, fmt.Errorf("invalid auth method specified for client: %d", c.authMethod)
 	}
 }
 

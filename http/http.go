@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -25,26 +26,25 @@ type CsrRequest struct {
 }
 
 type CertResponse struct {
-	Cert        []byte
-	CsrFilename string
-	Error       error
+	Cert     []byte
+	Filename string
 }
 
-func PostAdcsRequest(user, pass string, csrs []CsrRequest, config *CertConfig, verbose bool) (certs []CertResponse, err error) {
+func PostAdcsRequest(user, pass string, csrs []CsrRequest, config *CertConfig) (certs []CertResponse, errors []error) {
 	var client *Client
 	var certResp *http.Response
 
 	// build cert request url
 	certfnshUrl, err := url.Parse(config.AdcsUrl)
 	if err != nil {
-		return certs, fmt.Errorf("invalid adcs-url: %s", err)
+		return certs, []error{fmt.Errorf("invalid adcs-url: %w", err)}
 	}
 	certfnshUrl.Path = path.Join(certfnshUrl.Path, "certfnsh.asp")
 
 	// build issued cert url
 	certnewUrl, err := url.Parse(config.AdcsUrl)
 	if err != nil {
-		return certs, fmt.Errorf("invalid adcs-url: %s", err)
+		return certs, []error{fmt.Errorf("invalid adcs-url: %w", err)}
 	}
 	certnewUrl.Path = path.Join(certnewUrl.Path, "certnew.cer")
 
@@ -57,7 +57,7 @@ func PostAdcsRequest(user, pass string, csrs []CsrRequest, config *CertConfig, v
 			// load krb5 config
 			var configBytes []byte
 			if configBytes, err = os.ReadFile(config.AdcsAuthKrb5conf); err != nil {
-				return certs, fmt.Errorf("error loading kerberos config: %s", err)
+				return certs, []error{fmt.Errorf("could not load kerberos config: %w", err)}
 			}
 			krb5Config = string(configBytes)
 		} else {
@@ -66,7 +66,7 @@ func PostAdcsRequest(user, pass string, csrs []CsrRequest, config *CertConfig, v
 			t := template.Must(template.New("").Funcs(funcList).Parse(Krb5Config))
 			buffer := &bytes.Buffer{}
 			if err = t.Execute(buffer, *config); err != nil {
-				return certs, fmt.Errorf("error creating kerberos config: %s", err)
+				return certs, []error{fmt.Errorf("could not create kerberos config: %w", err)}
 			}
 			krb5Config = buffer.String()
 		}
@@ -75,21 +75,22 @@ func PostAdcsRequest(user, pass string, csrs []CsrRequest, config *CertConfig, v
 		realm := strings.ToUpper(config.AdcsAuthRealm)
 
 		client, err = NewClient(Kerberos, user, pass, config.AdcsAuthKeytab, realm, krb5Config)
+		if err != nil {
+			return certs, []error{fmt.Errorf("could not create auth client: %w", err)}
+		}
 	}
-	if verbose {
-		fmt.Printf("client auth method: %s\n", config.AdcsAuthMethods.String())
-	}
+	slog.Debug("using auth method", "adcs-auth.method", config.AdcsAuthMethods.String())
 
 	if err != nil {
-		return certs, err
+		return certs, []error{err}
 	}
 	defer client.Destroy()
 
 	for _, csr := range csrs {
-		if verbose {
-			fmt.Printf("processing %s\n", csr.Filename)
-			fmt.Printf("post request: %s\n", certfnshUrl.String())
-		}
+		// create child logger with CSR context
+		logger := slog.Default().With("filename", csr.Filename)
+
+		logger.Debug("processing csr", "url", certfnshUrl.String())
 
 		// build POST data
 		form := url.Values{}
@@ -105,7 +106,7 @@ func PostAdcsRequest(user, pass string, csrs []CsrRequest, config *CertConfig, v
 		// build request
 		req, err := http.NewRequest("POST", certfnshUrl.String(), body)
 		if err != nil {
-			return []CertResponse{}, err
+			return certs, []error{err}
 		}
 		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 		if config.HasAuthMethod(Ntlm) {
@@ -115,7 +116,7 @@ func PostAdcsRequest(user, pass string, csrs []CsrRequest, config *CertConfig, v
 		// get response
 		resp, err := client.Do(req)
 		if err != nil {
-			return []CertResponse{}, err
+			return certs, []error{err}
 		}
 		defer resp.Body.Close()
 
@@ -123,12 +124,8 @@ func PostAdcsRequest(user, pass string, csrs []CsrRequest, config *CertConfig, v
 		requestId := ""
 		if resp.StatusCode != http.StatusOK {
 			content, _ := io.ReadAll(resp.Body)
-			certs = append(certs, CertResponse{
-				Cert:        []byte{},
-				CsrFilename: csr.Filename,
-				Error:       fmt.Errorf("certificate issue request returned status code: %d, response: %s", resp.StatusCode, content),
-			})
-			err = fmt.Errorf("error getting cert")
+			logger.Error("certificate issue request failed", "StatusCode", resp.StatusCode, "response", content)
+			errors = append(errors, fmt.Errorf("certificate issue request failed"))
 			continue
 		} else if resp.StatusCode == http.StatusOK {
 			scanner := bufio.NewScanner(resp.Body)
@@ -138,25 +135,19 @@ func PostAdcsRequest(user, pass string, csrs []CsrRequest, config *CertConfig, v
 					match := expr.FindStringSubmatch(scanner.Text())
 					if len(match) == 2 { // found a Request ID, extract it
 						requestId = match[1]
-						fmt.Printf("server issued certificate with request ID %s\n", requestId)
+						logger.Info("server issued certificate", "ReqID", requestId)
 						break
 					}
 				}
 			}
 		}
 		if requestId == "" {
-			certs = append(certs, CertResponse{
-				Cert:        []byte{},
-				CsrFilename: csr.Filename,
-				Error:       fmt.Errorf("did not receive an issued certificate from the server"),
-			})
-			err = fmt.Errorf("error getting cert")
+			logger.Error("did not receive an issued certificate from the server")
+			errors = append(errors, fmt.Errorf("could not get certificate"))
 			continue
 		}
 
-		if verbose {
-			fmt.Printf("get request: %s\n", certnewUrl.String())
-		}
+		logger.Debug("getting certificate", "url", certnewUrl.String())
 
 		query := certnewUrl.Query()
 		query.Set("ReqID", requestId)
@@ -166,56 +157,40 @@ func PostAdcsRequest(user, pass string, csrs []CsrRequest, config *CertConfig, v
 		// download issued cert
 		certReq, err := http.NewRequest("GET", certnewUrl.String(), nil)
 		if err != nil {
-			certs = append(certs, CertResponse{
-				Cert:        []byte{},
-				CsrFilename: csr.Filename,
-				Error:       fmt.Errorf("could not initiate cert download request: %v", err),
-			})
-			err = fmt.Errorf("error getting cert")
+			logger.Error("could not initiate certificate download request", "error", slog.Any("error", err))
+			errors = append(errors, fmt.Errorf("could not get certificate"))
 			continue
 		}
 
 		// get response
 		certResp, err = client.Do(certReq)
 		if err != nil {
-			certs = append(certs, CertResponse{
-				Cert:        []byte{},
-				CsrFilename: csr.Filename,
-				Error:       fmt.Errorf("could not download issued cert: %v", err),
-			})
-			err = fmt.Errorf("error getting cert")
+			logger.Error("could not download issued certificate", "error", slog.Any("error", err))
+			errors = append(errors, fmt.Errorf("could not get certificate"))
 			continue
 		}
 		if certResp.StatusCode != http.StatusOK {
 			content, _ := io.ReadAll(certResp.Body)
-			certs = append(certs, CertResponse{
-				Cert:        []byte{},
-				CsrFilename: csr.Filename,
-				Error:       fmt.Errorf("download request returned status code: %d, response: %s", certResp.StatusCode, content),
-			})
-			err = fmt.Errorf("error getting cert")
+			logger.Error("certificate download request failed", "StatusCode", certResp.StatusCode, "response", content)
+			errors = append(errors, fmt.Errorf("certificate download request failed"))
 			certResp.Body.Close()
 			continue
 		} else {
 			cert, err := io.ReadAll(certResp.Body)
 			if err != nil {
-				certs = append(certs, CertResponse{
-					Cert:        []byte{},
-					CsrFilename: csr.Filename,
-					Error:       fmt.Errorf("could not read cert response: %s", err),
-				})
-				err = fmt.Errorf("error getting cert")
+				logger.Error("could not read certificate download", "error", slog.Any("error", err))
+				errors = append(errors, fmt.Errorf("could not get certificate"))
 				certResp.Body.Close()
 				continue
 			} else {
 				certs = append(certs, CertResponse{
-					Cert:        cert,
-					CsrFilename: csr.Filename,
+					Cert:     cert,
+					Filename: fmt.Sprintf("%s.crt", strings.TrimSuffix(csr.Filename, ".csr")),
 				})
 				certResp.Body.Close()
 			}
 		}
 	}
 
-	return
+	return certs, errors
 }

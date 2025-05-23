@@ -6,6 +6,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"strings"
@@ -41,7 +42,7 @@ func getCsrConfig(args []string) *http.CsrConfig {
 			if ip := net.ParseIP(strings.TrimPrefix(arg, "ip:")); ip != nil {
 				ips = append(ips, ip)
 			} else {
-				fmt.Printf("error generating csr: Invalid IP address %s\n", arg)
+				slog.Error("could not generate csr: invalid IP address", "ip", arg)
 				os.Exit(1)
 			}
 		} else if strings.HasPrefix(arg, "dns:") {
@@ -91,36 +92,34 @@ func csr(cmd *cobra.Command, args []string) {
 		ips = append(ips, ip.String())
 	}
 
-	if verbose {
-		fmt.Printf(`Generating %s.csr with values:
-CN: %s
-C: %s
-ST: %s
-L: %s
-O: %s
-OU: %s
-Email: %s
-DNS: %s
-IP: %s
-`, config.CN, config.CN, config.C, config.ST, config.L, config.O, config.OU, config.Email, strings.Join(config.DNS, ","),
-			strings.Join(ips, ","))
-	}
+	slog.Debug("generating csr",
+		"CN", config.CN,
+		"C", config.C,
+		"ST", config.ST,
+		"L", config.L,
+		"O", config.O,
+		"OU", config.OU,
+		"Email", config.Email,
+		"DNS", strings.Join(config.DNS, ","),
+		"IP", strings.Join(ips, ","),
+	)
+
 	keyFileName := fmt.Sprintf("%s.key", config.CN)
 	csrFileName := fmt.Sprintf("%s.csr", config.CN)
 
 	// get key
-	key, err := crypto.GetKey(keyFileName, rsaSize, verbose)
+	key, err := crypto.GetKey(keyFileName, rsaSize)
 	if err != nil {
-		fmt.Printf("error getting private key: %s\n", err)
+		slog.Error("could not get private key", "error", slog.Any("error", err))
 		os.Exit(1)
 	}
 
 	if _, err := crypto.GenerateCsr(csrFileName, key, config.CN, config.C, config.ST, config.L, config.O, config.OU,
 		config.Email, config.DNS, config.IP); err != nil {
-		fmt.Printf("error generating CSR: %s\n", err)
+		slog.Error("could not generate csr", "error", slog.Any("error", err))
 		os.Exit(1)
 	} else {
-		fmt.Printf("wrote csr to %s\n", csrFileName)
+		slog.Info("wrote csr", "filename", csrFileName)
 	}
 }
 
