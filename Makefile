@@ -3,7 +3,8 @@ BIN_NAME=gotls
 all: build
 
 build:
-	go build -v -ldflags '-w' -o $(BIN_NAME)
+	go mod vendor
+	go build -v -mod=vendor -ldflags '-w' -o $(BIN_NAME)
 
 man:
 	cd rpm/man && go run main.go
