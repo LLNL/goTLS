@@ -7,6 +7,7 @@ package cmd
 import (
 	"log/slog"
 	"os"
+	"runtime/debug"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
@@ -16,6 +17,7 @@ import (
 var logLevel *slog.LevelVar
 var confFile string
 var verbose bool
+var version bool
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
@@ -26,7 +28,49 @@ from an Active Directory Certificate Services endpoint.`,
 	SilenceErrors: true,
 	SilenceUsage:  true,
 	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
+		if version {
+			// print binary version (uses semver pre-release syntax vs git describe post-release)
+			// if git describe outputs v0.1.0-19-ge626b7c (e626b7c is 19 commits after the v0.1.0 tag),
+			// semver would call this v0.1.1-pre release. Version will read v0.1.1-0.20250603183735-e626b7c4ea5a
+			info, ok := debug.ReadBuildInfo()
+			if !ok {
+				slog.Error("could not read build info from binary")
+				os.Exit(1)
+			}
+			slog.Info("GoTLS", "version", info.Main.Version)
+
+			if verbose {
+				// collect build info
+				settings := []any{
+					"module", info.Main.Path,
+					"go", info.GoVersion,
+				}
+				for _, setting := range info.Settings {
+					switch setting.Key {
+					case "GOOS":
+						settings = append(settings, "os")
+						settings = append(settings, setting.Value)
+					case "GOARCH":
+						settings = append(settings, "arch")
+						settings = append(settings, setting.Value)
+					case "vcs.time":
+						settings = append(settings, "time")
+						settings = append(settings, setting.Value)
+					case "vcs.revision":
+						settings = append(settings, "commit")
+						settings = append(settings, setting.Value)
+					case "vcs.modified":
+						settings = append(settings, "modified")
+						settings = append(settings, setting.Value)
+					}
+				}
+
+				// print build info
+				slog.Debug("build info", settings...)
+			}
+		} else {
+			cmd.Help()
+		}
 	},
 }
 
@@ -49,6 +93,7 @@ func init() {
 	RootCmd.PersistentFlags().StringVar(&confFile, "config", "",
 		"config file (default is ./.gotls.yaml or $HOME/.gotls.yaml)")
 	RootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enables verbose output")
+	RootCmd.PersistentFlags().BoolVarP(&version, "version", "V", false, "prints version info; +build info if combined with verbose")
 
 	RootCmd.CompletionOptions.HiddenDefaultCmd = true
 
