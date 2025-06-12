@@ -18,6 +18,67 @@ import (
 	"github.com/llnl/gotls/http"
 )
 
+var outputFilename string
+
+// csrCmd represents the csr command
+var csrCmd = &cobra.Command{
+	Use:   "csr [Flags] primary-hostname.fq.dn [additional-hostname-or-IP(s)]",
+	Short: "Generate a Certificate Signing Request",
+	Long: `Generate a Certificate Signing Request given hostname(s) or ip(s).
+The filename of the private key to derive the CSR from can be provided to the
+--key parameter or will be constructed from the first argument
+(primary-hostname.fq.dn.key). If that filename does not exist in the current
+directory, a new RSA private key will be created. For more control over the
+key parameters, use the gotls key command.`,
+	Args:                  cobra.MinimumNArgs(1),
+	DisableFlagsInUseLine: true,
+	Run: func(cmd *cobra.Command, args []string) {
+		// load flag variables
+		config := getCsrConfig(args)
+
+		// convert IPs to string represenatation
+		ips := make([]string, 0, len(config.IP))
+		for _, ip := range config.IP {
+			ips = append(ips, ip.String())
+		}
+
+		slog.Debug("generating csr",
+			"CN", config.CN,
+			"C", config.C,
+			"ST", config.ST,
+			"L", config.L,
+			"O", config.O,
+			"OU", config.OU,
+			"Email", config.Email,
+			"DNS", strings.Join(config.DNS, ","),
+			"IP", strings.Join(ips, ","),
+		)
+
+		if keyFilename == "" {
+			keyFilename = fmt.Sprintf("%s.key", config.CN)
+		}
+		if outputFilename == "" {
+			outputFilename = fmt.Sprintf("%s.csr", config.CN)
+		}
+
+		// get key
+		var key any
+		if _, err := os.Stat(keyFilename); err == nil { // key exists
+			key = LoadKey(keyFilename)
+		} else { // key does not exist, create one
+			key = CreateKey(keyFilename)
+		}
+
+		if _, err := crypto.GenerateCsr(outputFilename, key, config.CN, config.C, config.ST, config.L, config.O,
+			config.OU, config.Email, config.DNS, config.IP); err != nil {
+			slog.Error("could not generate csr", "error", slog.Any("error", err))
+			os.Exit(1)
+		} else {
+			slog.Info("wrote csr", "filename", outputFilename)
+		}
+	},
+}
+
 func getCsrConfig(args []string) *http.CsrConfig {
 	var cn string
 
@@ -69,76 +130,24 @@ func getCsrConfig(args []string) *http.CsrConfig {
 	}
 }
 
-// csrCmd represents the csr command
-var csrCmd = &cobra.Command{
-	Use:   "csr primary-hostname.fq.dn [additional-hostname-or-IP(s)]",
-	Short: "Generate a Certificate Signing Request",
-	Long: `Generate a Certificate Signing Request given a number of hostname(s)/ip(s).
-If a private key matching the given primary hostname (first argument) exists in the current
-directory it will be used, otherwise a new key will be created.`,
-	Args: cobra.MinimumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		csr(cmd, args)
-	},
-}
-
-func csr(cmd *cobra.Command, args []string) {
-	// load flag variables
-	config := getCsrConfig(args)
-
-	// convert IPs to string represenatation
-	ips := make([]string, 0, len(config.IP))
-	for _, ip := range config.IP {
-		ips = append(ips, ip.String())
-	}
-
-	slog.Debug("generating csr",
-		"CN", config.CN,
-		"C", config.C,
-		"ST", config.ST,
-		"L", config.L,
-		"O", config.O,
-		"OU", config.OU,
-		"Email", config.Email,
-		"DNS", strings.Join(config.DNS, ","),
-		"IP", strings.Join(ips, ","),
-	)
-
-	keyFileName := fmt.Sprintf("%s.key", config.CN)
-	csrFileName := fmt.Sprintf("%s.csr", config.CN)
-
-	// get key
-	key, err := crypto.GetKey(keyFileName, rsaSize)
-	if err != nil {
-		slog.Error("could not get private key", "error", slog.Any("error", err))
-		os.Exit(1)
-	}
-
-	if _, err := crypto.GenerateCsr(csrFileName, key, config.CN, config.C, config.ST, config.L, config.O, config.OU,
-		config.Email, config.DNS, config.IP); err != nil {
-		slog.Error("could not generate csr", "error", slog.Any("error", err))
-		os.Exit(1)
-	} else {
-		slog.Info("wrote csr", "filename", csrFileName)
-	}
-}
-
 func initCsr() {
 	// define flags
-	csrCmd.Flags().StringP("email", "e", "", "Email address to submit")
-	csrCmd.Flags().StringP("c", "c", "", "Country field for CSR")
-	csrCmd.Flags().StringP("st", "", "", "Province or state field for CSR")
-	csrCmd.Flags().StringP("l", "l", "", "Locality or city field for CSR")
-	csrCmd.Flags().StringP("o", "o", "", "Organization field for CSR")
-	csrCmd.Flags().StringP("ou", "", "", "Organization Unit field for CSR")
+	csrCmd.Flags().StringP("email", "e", "", "Email address field for CSR")
+	csrCmd.Flags().String("C", "", "Country field for CSR")
+	csrCmd.Flags().String("ST", "", "Province or state field for CSR")
+	csrCmd.Flags().String("L", "", "Locality or city field for CSR")
+	csrCmd.Flags().String("O", "", "Organization field for CSR")
+	csrCmd.Flags().String("OU", "", "Organization Unit field for CSR")
 	csrCmd.Flags().IntVarP(&rsaSize, "rsa-size", "", 2048, "RSA key size to use")
+	csrCmd.Flags().StringVarP(&keyFilename, "key", "k", "", "Filename containing private key (default is primary-hostname.fq.dn.key)")
+	csrCmd.Flags().StringVarP(&outputFilename, "output", "o", "", "Filename for writing CSR (default is primary-hostname.fq.dn.csr)")
 
 	// bind flags to conf file values
-	viper.BindPFlag("c", csrCmd.Flags().Lookup("c"))
-	viper.BindPFlag("st", csrCmd.Flags().Lookup("st"))
-	viper.BindPFlag("l", csrCmd.Flags().Lookup("l"))
-	viper.BindPFlag("o", csrCmd.Flags().Lookup("o"))
-	viper.BindPFlag("ou", csrCmd.Flags().Lookup("ou"))
+	viper.BindPFlag("c", csrCmd.Flags().Lookup("C"))
+	viper.BindPFlag("st", csrCmd.Flags().Lookup("ST"))
+	viper.BindPFlag("l", csrCmd.Flags().Lookup("L"))
+	viper.BindPFlag("o", csrCmd.Flags().Lookup("O"))
+	viper.BindPFlag("ou", csrCmd.Flags().Lookup("OU"))
 	viper.BindPFlag("email", csrCmd.Flags().Lookup("email"))
 
 	RootCmd.AddCommand(csrCmd)

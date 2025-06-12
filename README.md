@@ -89,7 +89,7 @@ be made under the MIT license.
 
 Building
 --------
-To build the goTLS binary from source, install go  >= 1.23.0 and then run make in the working copy. It will
+To build the goTLS binary from source, install go >= 1.23.0 and then run make in the working copy. It will
 create a gotls binary.
 
 Future work

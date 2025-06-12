@@ -19,6 +19,15 @@ import (
 	"github.com/llnl/gotls/http"
 )
 
+// certCmd represents the cert command
+var certCmd = &cobra.Command{
+	Use:   "cert",
+	Short: "Obtain certificates signed by the configured authority",
+	Long: `Contacts the given signing authority and obtains a signed TLS
+certificate corresponding to the given CSR`,
+	Args: cobra.MinimumNArgs(1),
+}
+
 func getCertConfig(args []string) *http.CertConfig {
 	var adcsAuthKrb5conf, adcsAuthUser, adcsAuthRealm, adcsAuthKeytab string
 	var adcsAuthKdcs []string
@@ -81,15 +90,6 @@ func getCertConfig(args []string) *http.CertConfig {
 	certConfig.SetAuthMethodString(adcsAuthMethod)
 
 	return certConfig
-}
-
-// certCmd represents the cert command
-var certCmd = &cobra.Command{
-	Use:   "cert",
-	Short: "Obtain certificates signed by the configured authority",
-	Long: `Contacts the given signing authority and obtains a signed TLS
-certificate corresponding to the given CSR`,
-	Args: cobra.MinimumNArgs(1),
 }
 
 var adcsCmd = &cobra.Command{
