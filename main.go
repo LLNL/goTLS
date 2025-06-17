@@ -19,7 +19,7 @@ func main() {
 	initLogger()
 
 	if err := cmd.Execute(logLevel); err != nil {
-		slog.Error("error", slog.Any("error", err))
+		slog.Error("could not execute command", slog.Any("error", err))
 		os.Exit(1)
 	}
 }

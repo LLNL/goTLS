@@ -114,12 +114,12 @@ func adcs(cmd *cobra.Command, args []string) {
 	for _, csrFilename := range args {
 		// read in CSR
 		if _, err := os.Stat(csrFilename); err != nil {
-			slog.Error("could not access CSR file", "filename", csrFilename, "error", slog.Any("error", err))
+			slog.Error("could not access CSR file", "filename", csrFilename, slog.Any("error", err))
 			os.Exit(1)
 		} else { // CSR file exists
 			csrBytes, err := os.ReadFile(csrFilename)
 			if err != nil {
-				slog.Error("could not read CSR file", "filename", csrFilename, "error", slog.Any("error", err))
+				slog.Error("could not read CSR file", "filename", csrFilename, slog.Any("error", err))
 				os.Exit(1)
 			}
 			csrs = append(csrs, http.CsrRequest{
@@ -146,7 +146,7 @@ func adcs(cmd *cobra.Command, args []string) {
 	if config.AdcsAuthKeytab == "" {
 		pass, err = speakeasy.Ask("Password for AD Certificate Services: ")
 		if err != nil {
-			slog.Error("could not get password", "error", slog.Any("error", err))
+			slog.Error("could not get password", slog.Any("error", err))
 			os.Exit(1)
 		}
 	}
@@ -160,17 +160,18 @@ func adcs(cmd *cobra.Command, args []string) {
 
 		// write cert
 		if err := crypto.WriteCert(cert.Filename, cert.Cert); err != nil {
-			slog.Error("could not write cert", "filename", cert.Filename, "error", slog.Any("error", err))
+			slog.Error("could not write certificate", "filename", cert.Filename, slog.Any("error", err))
 			os.Exit(1)
+		} else {
+			slog.Info("wrote certificate", "filename", cert.Filename)
 		}
 	}
 
 	// handle errors
 	if len(errors) > 0 {
 		for _, err := range errors {
-			slog.Error("error", slog.Any("error", err))
+			slog.Error("could not obtain certificate", slog.Any("error", err))
 		}
-
 		os.Exit(1)
 	}
 }

@@ -157,7 +157,7 @@ func PostAdcsRequest(user, pass string, csrs []CsrRequest, config *CertConfig) (
 		// download issued cert
 		certReq, err := http.NewRequest("GET", certnewUrl.String(), nil)
 		if err != nil {
-			logger.Error("could not initiate certificate download request", "error", slog.Any("error", err))
+			logger.Error("could not initiate certificate download request", slog.Any("error", err))
 			errors = append(errors, fmt.Errorf("could not get certificate"))
 			continue
 		}
@@ -165,7 +165,7 @@ func PostAdcsRequest(user, pass string, csrs []CsrRequest, config *CertConfig) (
 		// get response
 		certResp, err = client.Do(certReq)
 		if err != nil {
-			logger.Error("could not download issued certificate", "error", slog.Any("error", err))
+			logger.Error("could not download issued certificate", slog.Any("error", err))
 			errors = append(errors, fmt.Errorf("could not get certificate"))
 			continue
 		}
@@ -178,7 +178,7 @@ func PostAdcsRequest(user, pass string, csrs []CsrRequest, config *CertConfig) (
 		} else {
 			cert, err := io.ReadAll(certResp.Body)
 			if err != nil {
-				logger.Error("could not read certificate download", "error", slog.Any("error", err))
+				logger.Error("could not read certificate download", slog.Any("error", err))
 				errors = append(errors, fmt.Errorf("could not get certificate"))
 				certResp.Body.Close()
 				continue

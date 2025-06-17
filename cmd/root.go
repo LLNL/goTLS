@@ -117,7 +117,7 @@ func initConfig(keyOrParent string) {
 
 		home, err := homedir.Dir()
 		if err != nil {
-			slog.Error("error", "error", slog.Any("error", err))
+			slog.Error("could not obtain home directory", slog.Any("error", err))
 			os.Exit(1)
 		}
 		viper.AddConfigPath(home)
@@ -128,7 +128,7 @@ func initConfig(keyOrParent string) {
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok { // Config file was found but another error was produced
-			slog.Error("error", "error", slog.Any("error", err))
+			slog.Error("could not read config", slog.Any("error", err))
 			os.Exit(1)
 		}
 	}

@@ -5,6 +5,7 @@
 package cmd
 
 import (
+	"crypto/x509"
 	"fmt"
 	"log/slog"
 	"net"
@@ -18,7 +19,7 @@ import (
 	"github.com/llnl/gotls/http"
 )
 
-var outputFilename string
+var keyFilename, outputFilename string
 
 // csrCmd represents the csr command
 var csrCmd = &cobra.Command{
@@ -35,6 +36,11 @@ key parameters, use the gotls key command.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// load flag variables
 		config := getCsrConfig(args)
+
+		// load rsaSize from config
+		if viper.IsSet("rsa-size") {
+			rsaSize = viper.GetInt("rsa-size")
+		}
 
 		// convert IPs to string represenatation
 		ips := make([]string, 0, len(config.IP))
@@ -65,13 +71,18 @@ key parameters, use the gotls key command.`,
 		var key any
 		if _, err := os.Stat(keyFilename); err == nil { // key exists
 			key = LoadKey(keyFilename)
-		} else { // key does not exist, create one
-			key = CreateKey(keyFilename)
+		} else { // key does not exist, create default key (RSA 2048 PKCS#1)
+			key = CreateKey(&crypto.KeyRequest{
+				Filename:  keyFilename,
+				Type:      x509.RSA,
+				Container: crypto.PKCS1,
+				RsaSize:   rsaSize,
+			})
 		}
 
 		if _, err := crypto.GenerateCsr(outputFilename, key, config.CN, config.C, config.ST, config.L, config.O,
 			config.OU, config.Email, config.DNS, config.IP); err != nil {
-			slog.Error("could not generate csr", "error", slog.Any("error", err))
+			slog.Error("could not generate csr", slog.Any("error", err))
 			os.Exit(1)
 		} else {
 			slog.Info("wrote csr", "filename", outputFilename)
@@ -130,6 +141,29 @@ func getCsrConfig(args []string) *http.CsrConfig {
 	}
 }
 
+func LoadKey(filename string) (key any) {
+	slog.Debug("loading existing private key", "filename", outputFilename)
+
+	keyRequest := &crypto.KeyRequest{
+		Filename: filename,
+	}
+
+	// load key
+	key, err := crypto.GetKey(keyRequest)
+	if err != nil {
+		slog.Error("could not load key", "filename", filename, slog.Any("error", err))
+		os.Exit(1)
+	}
+
+	slog.Info("private key found",
+		"filename", keyRequest.Filename,
+		"type", keyRequest.Type.String(),
+		"container", keyRequest.Container.String(),
+	)
+
+	return key
+}
+
 func initCsr() {
 	// define flags
 	csrCmd.Flags().StringP("email", "e", "", "Email address field for CSR")
@@ -138,7 +172,6 @@ func initCsr() {
 	csrCmd.Flags().String("L", "", "Locality or city field for CSR")
 	csrCmd.Flags().String("O", "", "Organization field for CSR")
 	csrCmd.Flags().String("OU", "", "Organization Unit field for CSR")
-	csrCmd.Flags().IntVarP(&rsaSize, "rsa-size", "", 2048, "RSA key size to use")
 	csrCmd.Flags().StringVarP(&keyFilename, "key", "k", "", "Filename containing private key (default is primary-hostname.fq.dn.key)")
 	csrCmd.Flags().StringVarP(&outputFilename, "output", "o", "", "Filename for writing CSR (default is primary-hostname.fq.dn.csr)")
 
