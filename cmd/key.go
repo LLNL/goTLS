@@ -158,10 +158,10 @@ func CreateKey(keyRequest *crypto.KeyRequest) (key any) {
 }
 
 func initKey() {
-	keyCmd.Flags().StringVarP(&algorithm, "algorithm", "a", "rsa", "Encryption algorthm to use (rsa - default, ecdsa, or ed25519)")
-	keyCmd.Flags().StringVarP(&container, "container", "c", "pkcs1", "Container format to store key in ASN.1, DER, PEM form (pkcs1 - default, pkcs8, sec1)")
-	keyCmd.Flags().IntVarP(&ecSize, "ec-size", "", 256, "Elliptic Curve bit size NIST implementation to use (224, 256 - default, 384, 521)")
-	keyCmd.Flags().IntVarP(&rsaSize, "rsa-size", "", 2048, "RSA bit size to use (default: 2048)")
+	keyCmd.Flags().StringVarP(&algorithm, "algorithm", "a", "rsa", "Encryption algorthm to use: rsa, ecdsa, or ed25519")
+	keyCmd.Flags().StringVarP(&container, "container", "c", "pkcs1", "Container format to store key in ASN.1, DER, PEM form: pkcs1, pkcs8, sec1")
+	keyCmd.Flags().IntVarP(&ecSize, "ec-size", "", 256, "Elliptic Curve bit size/NIST implementation to use: 224, 256, 384, 521")
+	keyCmd.Flags().IntVarP(&rsaSize, "rsa-size", "", 2048, "RSA bit size to use")
 	keyCmd.Flags().StringVarP(&outputFilename, "output", "o", "", "Filename for writing private key (default is hostname.fq.dn.key)")
 
 	// bind flags to conf file values
