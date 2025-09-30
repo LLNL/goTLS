@@ -12,7 +12,7 @@ vendor:
 	go mod vendor
 
 build: vendor
-	go build -v -mod=vendor -ldflags '-w' -o $(BIN_NAME)
+	go build -v -mod=vendor -ldflags '-w' -o $(BIN_DIR)/$(BIN_NAME)
 
 man: vendor
 	cd rpm/man && go run main.go
@@ -21,11 +21,10 @@ bash: vendor
 	go run main.go completion bash > rpm/bash/completion.bash
 
 wininstaller: build
-	makensis wininstaller.nsi && chmod +x $(BIN_NAME)-installer.exe
+	makensis wininstaller.nsi && chmod +x $(BIN_DIR)/$(BIN_NAME)-installer.exe
 
 clean:
 	go clean
-	rm -f $(BIN_NAME)
-	rm -f $(BIN_NAME)-installer.exe
+	rm -f $(BIN_DIR)/*
 
 .PHONY: vendor build clean

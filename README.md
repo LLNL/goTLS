@@ -87,10 +87,17 @@ requests](https://help.github.com/articles/using-pull-requests) can be
 targeted directly to the master branch. As noted below, all contributions must
 be made under the MIT license.
 
+
 Building
 --------
 To build the goTLS binary from source, install go >= 1.23.0 and then run make in the working copy. It will
 create a gotls binary.
+
+To compile for a different OS:
+GOOS=darwin make
+GOOS=windows make
+See [All possible GOOS values](https://stackoverflow.com/questions/20728767/all-possible-goos-value)
+
 
 Future work
 -----------

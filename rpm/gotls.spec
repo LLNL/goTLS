@@ -1,5 +1,5 @@
 Name:           gotls
-Version:        0.1.0
+Version:        0.2.0-rc.1
 Release:        1%{?dist}
 Summary:        gotls is an automated TLS certificate issuance and management tool
 
@@ -29,7 +29,7 @@ make %{?_smp_mflags}
 mkdir -p %{buildroot}%{_bindir}
 mkdir -p %{buildroot}%{_mandir}/man8
 mkdir -p %{buildroot}%{_datadir}/bash-completion/completions
-install -p -m 755 gotls %{buildroot}%{_bindir}/gotls
+install -p -m 755 bin/gotls %{buildroot}%{_bindir}/gotls
 install -p -m 644 rpm/man/gotls.8 %{buildroot}%{_mandir}/man8/gotls.8
 install -p -m 644 rpm/man/gotls-cert.8 %{buildroot}%{_mandir}/man8/gotls-cert.8
 install -p -m 644 rpm/man/gotls-cert-adcs.8 %{buildroot}%{_mandir}/man8/gotls-cert-adcs.8

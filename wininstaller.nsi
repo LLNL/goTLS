@@ -1,43 +1,69 @@
+!include "logiclib.nsh"
+
 # define name of installer
-OutFile "gotls-installer.exe"
+OutFile "bin\gotls-installer.exe"
 
-# define installation directory
-InstallDir $DESKTOP
+# define install dir (no 32-bit support)
+InstallDir "$LocalAppData\Programs\goTLS"
 
-# For removing Start Menu shortcut in Windows 7
 RequestExecutionLevel user
 
 Section
-    # set the installation directory as the destination for the following actions
     SetOutPath $INSTDIR
 
-    File gotls.exe
+    File bin\gotls.exe
 
-    # create the uninstaller
+    # create uninstaller
     WriteUninstaller "$INSTDIR\uninstall.exe"
 
-    # create a shortcut named "goTLS" in the start menu programs directory
-    # point the new shortcut at the program uninstaller
-    CreateShortcut "$SMPROGRAMS\goTLS.lnk" "C:\Windows\system32\cmd.exe" "/k 'echo try gotls -h'"
+    # create application shortcut in start menu
+    CreateShortcut "$SMPROGRAMS\goTLS.lnk" "C:\Windows\system32\cmd.exe" "/k echo try gotls -h"
 
-    ; Add your application's installation directory to the system PATH
-    ; Replace "YourAppPath" with the actual path, e.g., "$INSTDIR\Bin"
- #   EnvVarUpdate $0 "PATH" "A" "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "$INSTDIR"
-#TODO: Use https://nsis.sourceforge.io/EnVar_plug-in instead
+    # check for environment variable write access
+    EnVar::SetHKCU
+    EnVar::Check "NULL" "NULL"
+    Pop $0
+    ${If} $0 <> 0
+      DetailPrint "EnVar::Check write access error in HKCU, returned:$0"
+    ${EndIf}
 
-    ; Alternatively, for user-specific PATH:
-    ; EnvVarUpdate $0 "PATH" "A" "HKCU\Environment" "YourAppPath"
+    # add INSTDIR to HKCU path
+    EnVar::Check "Path" "$INSTDIR"
+    Pop $0
+    ${If} $0 <> 0
+      EnVar::AddValue "Path" "$INSTDIR"
+      Pop $0
+      ${If} $0 <> 0
+        DetailPrint "EnVar::AddValue error, %path% unchanged, returned:$0"
+      ${EndIf}
+    ${EndIf}
 SectionEnd
 
 Section "uninstall"
+    # remove binary
+    Delete "$INSTDIR\gotls.exe"
 
-    # Remove the link from the start menu
+    # remove link from start menu
     Delete "$SMPROGRAMS\goTLS.lnk"
 
-    # Delete the uninstaller
-    Delete $INSTDIR\uninstaller.exe
+    # delete uninstaller
+    Delete "$INSTDIR\uninstall.exe"
 
+    # delete the install dir
     RMDir $INSTDIR
 
-#    EnvVarUpdate $0 "PATH" "R" "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "$INSTDIR"
+    # check for environment variable write access
+    EnVar::SetHKCU
+    EnVar::Check "NULL" "NULL"
+    Pop $0
+    ${If} $0 <> 0
+      DetailPrint "EnVar::Check write access error in HKCU, returned:$0"
+    ${EndIf}
+
+    # remove INSTDIR from HKCU path
+    EnVar::DeleteValue "Path" "$INSTDIR"
+    Pop $0
+    ${If} $0 <> 0
+      DetailPrint "EnVar::DeleteValue error, %path% unchanged, returned:$0"
+    ${EndIf}
 SectionEnd
