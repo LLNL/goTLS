@@ -9,12 +9,11 @@ github.com/bgentry/speakeasy
 github.com/cpuguy83/go-md2man/v2/md2man
 # github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 ## explicit
-github.com/davecgh/go-spew/spew
 # github.com/fsnotify/fsnotify v1.9.0
 ## explicit; go 1.17
 github.com/fsnotify/fsnotify
 github.com/fsnotify/fsnotify/internal
-# github.com/go-viper/mapstructure/v2 v2.2.1
+# github.com/go-viper/mapstructure/v2 v2.4.0
 ## explicit; go 1.18
 github.com/go-viper/mapstructure/v2
 github.com/go-viper/mapstructure/v2/internal/errors
@@ -89,7 +88,6 @@ github.com/pelletier/go-toml/v2/internal/tracker
 github.com/pelletier/go-toml/v2/unstable
 # github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 ## explicit
-github.com/pmezard/go-difflib/difflib
 # github.com/russross/blackfriday/v2 v2.1.0
 ## explicit
 github.com/russross/blackfriday/v2
@@ -125,10 +123,6 @@ github.com/spf13/viper/internal/encoding/json
 github.com/spf13/viper/internal/encoding/toml
 github.com/spf13/viper/internal/encoding/yaml
 github.com/spf13/viper/internal/features
-# github.com/stretchr/testify v1.10.0
-## explicit; go 1.17
-github.com/stretchr/testify/assert
-github.com/stretchr/testify/assert/yaml
 # github.com/subosito/gotenv v1.6.0
 ## explicit; go 1.18
 github.com/subosito/gotenv
@@ -158,56 +152,6 @@ golang.org/x/text/transform
 golang.org/x/text/unicode/norm
 # gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
 ## explicit
-# gopkg.in/jcmturner/aescts.v1 v1.0.1
-## explicit
-gopkg.in/jcmturner/aescts.v1
-# gopkg.in/jcmturner/dnsutils.v1 v1.0.1
-## explicit
-gopkg.in/jcmturner/dnsutils.v1
-# gopkg.in/jcmturner/goidentity.v3 v3.0.0
-## explicit
-gopkg.in/jcmturner/goidentity.v3
-# gopkg.in/jcmturner/gokrb5.v7 v7.5.0
-## explicit
-gopkg.in/jcmturner/gokrb5.v7/asn1tools
-gopkg.in/jcmturner/gokrb5.v7/client
-gopkg.in/jcmturner/gokrb5.v7/config
-gopkg.in/jcmturner/gokrb5.v7/credentials
-gopkg.in/jcmturner/gokrb5.v7/crypto
-gopkg.in/jcmturner/gokrb5.v7/crypto/common
-gopkg.in/jcmturner/gokrb5.v7/crypto/etype
-gopkg.in/jcmturner/gokrb5.v7/crypto/rfc3961
-gopkg.in/jcmturner/gokrb5.v7/crypto/rfc3962
-gopkg.in/jcmturner/gokrb5.v7/crypto/rfc4757
-gopkg.in/jcmturner/gokrb5.v7/crypto/rfc8009
-gopkg.in/jcmturner/gokrb5.v7/gssapi
-gopkg.in/jcmturner/gokrb5.v7/iana
-gopkg.in/jcmturner/gokrb5.v7/iana/addrtype
-gopkg.in/jcmturner/gokrb5.v7/iana/adtype
-gopkg.in/jcmturner/gokrb5.v7/iana/asnAppTag
-gopkg.in/jcmturner/gokrb5.v7/iana/chksumtype
-gopkg.in/jcmturner/gokrb5.v7/iana/errorcode
-gopkg.in/jcmturner/gokrb5.v7/iana/etypeID
-gopkg.in/jcmturner/gokrb5.v7/iana/flags
-gopkg.in/jcmturner/gokrb5.v7/iana/keyusage
-gopkg.in/jcmturner/gokrb5.v7/iana/msgtype
-gopkg.in/jcmturner/gokrb5.v7/iana/nametype
-gopkg.in/jcmturner/gokrb5.v7/iana/patype
-gopkg.in/jcmturner/gokrb5.v7/iana/trtype
-gopkg.in/jcmturner/gokrb5.v7/kadmin
-gopkg.in/jcmturner/gokrb5.v7/keytab
-gopkg.in/jcmturner/gokrb5.v7/krberror
-gopkg.in/jcmturner/gokrb5.v7/messages
-gopkg.in/jcmturner/gokrb5.v7/pac
-gopkg.in/jcmturner/gokrb5.v7/service
-gopkg.in/jcmturner/gokrb5.v7/spnego
-gopkg.in/jcmturner/gokrb5.v7/test
-gopkg.in/jcmturner/gokrb5.v7/test/testdata
-gopkg.in/jcmturner/gokrb5.v7/types
-# gopkg.in/jcmturner/rpc.v1 v1.1.0
-## explicit
-gopkg.in/jcmturner/rpc.v1/mstypes
-gopkg.in/jcmturner/rpc.v1/ndr
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
