@@ -91,13 +91,35 @@ be made under the MIT license.
 Building
 --------
 To build the goTLS binary from source, install go >= 1.23.0 and then run make in the working copy. It will
-create a gotls binary.
+create a gotls binary in the bin sub-directory.
 
-To compile for a different OS:
-GOOS=darwin make
-GOOS=windows make
-See [All possible GOOS values](https://stackoverflow.com/questions/20728767/all-possible-goos-value)
+### Build gotls binary
+To compile for a different OS (assuming GOARCH on the build system is the same as on the target OS):
+    $ GOOS=darwin make
+    $ GOOS=windows make
 
+When compiling for windows on linux, you must first install the MINGW toolchain for your OS:
+    # dnf install mingw64-gcc mingw64-gcc-c++
+    # apt install gcc-mingw-w64 gcc-multilib
+
+If building on linux for Windows and the path to MINGW system root is not `/usr/x86_64-w64-mingw32/sys-root`
+as is the case on Debian/Fedora/RedHat, you must override the `BUILD_VAR` variable (in this case for Arch Linux):
+    $ BUILD_VAR='CGO_ENABLED=1 CC="x86_64-w64-mingw32-gcc --sysroot=/usr/x86_64-w64-mingw32"'
+
+Override GOARCH if needed:
+    $ GOOS=windows GOARCH=arm64 make
+
+If building on linux for Windows for other than GOARCH=amd64, override CC in the `BUILD_VAR` variable (in this case GOARCH=arm64):
+    $ BUILD_VAR='CGO_ENABLED=1 CC="aarch64-linux-gnu-gcc --sysroot=/usr/x86_64-w64-mingw32/sys-root"'
+
+To see all GOOS and GOARCH possible combinations:
+    $ go tool dist list
+
+### Build package/installer
+To create a Windows installer in the bin sub-directory:
+    $ GOOS=windows make wininstaller
+
+To create rpm package, see [rpm/README.md](https://github.com/LLNL/goTLS/blob/master/rpm/README.md).
 
 Future work
 -----------
